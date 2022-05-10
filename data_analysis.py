@@ -10,6 +10,7 @@ from scipy.signal import medfilt
 from ecgdetectors import Detectors
 from hrvanalysis import get_time_domain_features, get_frequency_domain_features
 from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
+from statistics import mean
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
@@ -49,6 +50,7 @@ def standardize(ecg_leads, cropping=False):
 
     return ecg_leads_standardized
 
+
 """Removal of Baseline-Drift"""
 def baseline(ecg_leads, fs):
     ecg_leads_baselined = []
@@ -76,9 +78,9 @@ def baseline(ecg_leads, fs):
 
 """ 
 Feature Extraction: Time and Frequency Domain possible
-Frequency domain aber eigentlich nur bei Samples zwischen 2-5 Minuten, deshalb auskommentiert
-Features werden pro Iteration in einem Dictionary zurückgegeben und in einer Liste gespeichert
-Flags geben an, ob 2-Klassen- oder 4-Klassen-Problem und wie stark die Vorverarbeitung dieser Libary ist
+- Frequency domain aber eigentlich nur bei Samples zwischen 2-5 Minuten, deshalb auskommentiert
+- Features werden pro Iteration in einem Dictionary zurückgegeben und in einer Liste gespeichert
+- Flags geben an, ob 2-Klassen- oder 4-Klassen-Problem und wie stark die Vorverarbeitung dieser Library ist
 
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.preprocessing
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features
@@ -116,7 +118,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_inter
         dict_list_time_domain_Noise = []
     else:
         dict_list_time_domain_N = []
-        dict_list_time_domain_A = []
+        dict_list_time_domain_Other = []
     #dict_list_frequency_domain = []
 
 
@@ -162,14 +164,37 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_inter
                 #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             else:
                 dict_copy = dict_time_domain.copy()
-                dict_list_time_domain_A.append(dict_copy)
-                print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                dict_list_time_domain_Other.append(dict_copy)
+                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             if (idx % 100) == 0:
                 print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-        if idx == (len(ecg_leads) - 1):
-            if four_problem:
-                return dict_list_time_domain_N, dict_list_time_domain_A, dict_list_time_domain_O, dict_list_time_domain_Noise
-            return dict_list_time_domain_N, dict_list_time_domain_A
 
-# dict_list_td_N, dict_list_td_A = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False)
+    if four_problem:
+        return dict_list_time_domain_N, dict_list_time_domain_A, dict_list_time_domain_O, dict_list_time_domain_Noise
+    return dict_list_time_domain_N, dict_list_time_domain_Other
+
+#dict_list_td_N, dict_list_td_Other = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False)
+dict_list_td_N, dict_list_td_A, dict_list_td_O, dict_list_td_Noise = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, nn_intervals=False)
+
+def histoplot(heart_rate, bins):
+    plt.hist(heart_rate, bins, range=[min(heart_rate),max(heart_rate)])
+    plt.xlabel('Heart rate')
+    plt.ylabel('Number of Samples')
+    plt.show()
+    mean_hr = np.nanmean(heart_rate)
+    max_hr = max(heart_rate)
+    min_hr = min(heart_rate)
+    print("HR-min: ", min_hr, "HR-max: ", max_hr, "HR-mean: ", mean_hr)
+
+def hr_analysis(dictionary, bins=50):
+    heart_rate = []
+    for i in range(len(dictionary)):
+        dict_temp = dictionary[i]
+        heart_rate.append(dict_temp['mean_hr'])
+    histoplot(heart_rate, bins)
+
+dictionaries = [dict_list_td_N, dict_list_td_A, dict_list_td_O, dict_list_td_Noise]
+for i in range(len(dictionaries)):
+    temp_dict = dictionaries[i]
+    hr_analysis(temp_dict, 50)
