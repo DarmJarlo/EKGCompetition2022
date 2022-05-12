@@ -14,7 +14,9 @@ from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpo
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
 #print(a)
+
 "Normal: 3581, Other: 1713, Noise: 185, AFib: 521"
+
 
 def standardize(ecg_leads, cropping=False):
     """Cropping the data"""
@@ -93,12 +95,15 @@ Features der Time Domain in den Dictionaries:
 - sdnn : The standard deviation of the time interval between successive normal heart beats (i.e. the RR-intervals).
 - sdsd: The standard deviation of differences between adjacent RR-intervals
 - rmssd: The square root of the mean of the sum of the squares of differences between adjacent NN-intervals. 
-Reflects high frequency (fast or parasympathetic) influences on hrV (i.e., those influencing larger changes from one beat to the next).
+Reflects high frequency (fast or parasympathetic) influences on hrV (i.e., those influencing larger changes from 
+one beat to the next).
 - median_nni: Median Absolute values of the successive differences between the RR-intervals.
 - nni_50: Number of interval differences of successive RR-intervals greater than 50 ms.
-- pnni_50: The proportion derived by dividing nni_50 (The number of interval differences of successive RR-intervals greater than 50 ms) by the total number of RR-intervals.
+- pnni_50: The proportion derived by dividing nni_50 (The number of interval differences of successive RR-intervals 
+greater than 50 ms) by the total number of RR-intervals.
 - nni_20: Number of interval differences of successive RR-intervals greater than 20 ms.
-- pnni_20: The proportion derived by dividing nni_20 (The number of interval differences of successive RR-intervals greater than 20 ms) by the total number of RR-intervals.
+- pnni_20: The proportion derived by dividing nni_20 (The number of interval differences of successive RR-intervals 
+greater than 20 ms) by the total number of RR-intervals.
 - range_nni: difference between the maximum and minimum nn_interval.
 - cvsd: Coefficient of variation of successive differences equal to the rmssd divided by mean_nni.
 - cvnni: Coefficient of variation equal to the ratio of sdnn divided by mean_nni.
@@ -107,6 +112,8 @@ Reflects high frequency (fast or parasympathetic) influences on hrV (i.e., those
 - min_hr: Min heart rate.
 - std_hr: Standard deviation of heart rate.
 """
+
+
 def feature_extraction_td(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
     detectors = Detectors(fs)
 
@@ -136,6 +143,8 @@ def feature_extraction_td(ecg_leads, ecg_labels, fs, four_problem = False, nn_in
             rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
         if len(rr_intervals_list) <= 2:
             continue
+
+        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
         dict_time_domain = get_time_domain_features(rr_intervals_list)
 
         if four_problem == True:
@@ -195,7 +204,9 @@ lf_hf_ratio : lf/hf ratio is sometimes used by some investigators as a quantitat
 lfnu : normalized lf power.
 hfnu : normalized hf power.
 """
-def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):   #
+
+
+def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
     detectors = Detectors(fs)
 
     if four_problem == True:
@@ -209,8 +220,10 @@ def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_in
 
     for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
+
         if len(rr_intervals) == 1:
             continue
+
         rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
 
         if nn_intervals:
@@ -221,9 +234,10 @@ def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_in
         else:
             rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
             rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
-        if len(rr_intervals_list) <= 2:
+        if len(rr_intervals_list) <= 3:
             continue
 
+        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan'] # remove nan values
         dict_frequency_domain = get_frequency_domain_features(rr_intervals_list, sampling_frequency=fs) # muss ggf. angepasst werden für andere Werte
 
         if four_problem == True:
@@ -262,6 +276,9 @@ def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_in
         dictionary_list = [dict_list_frequency_domain_N, dict_list_frequency_domain_Other]
         return dictionary_list
 
+dictionary_freq_features = feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem=True, nn_intervals=True)
+
+
 def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
     detectors = Detectors(fs)
 
@@ -290,6 +307,8 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem = Fal
             rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
         if len(rr_intervals_list) <= 2:
             continue
+
+        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
         dict_time_domain = get_geometrical_features(rr_intervals_list)
 
         if four_problem == True:
@@ -312,11 +331,11 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem = Fal
             if ecg_labels[idx] == 'N':
                 dict_copy = dict_time_domain.copy()
                 dict_list_geometrical_N.append(dict_copy)
-                # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             else:
                 dict_copy = dict_time_domain.copy()
                 dict_list_geometrical_Other.append(dict_copy)
-                # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             if (idx % 100) == 0:
                 print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
@@ -327,6 +346,7 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem = Fal
     else:
         dictionary_list = [dict_list_geometrical_N, dict_list_geometrical_Other]
         return dictionary_list
+
 
 def histoplot(heart_rate, bins):
     plt.hist(heart_rate, bins, range=[min(heart_rate),max(heart_rate)])
