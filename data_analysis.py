@@ -8,9 +8,8 @@ from wettbewerb import load_references
 from collections import Counter
 from scipy.signal import medfilt
 from ecgdetectors import Detectors
-from hrvanalysis import get_time_domain_features, get_frequency_domain_features
+from hrvanalysis import get_time_domain_features, get_frequency_domain_features, get_geometrical_features
 from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
-from statistics import mean
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
@@ -108,7 +107,7 @@ Reflects high frequency (fast or parasympathetic) influences on hrV (i.e., those
 - min_hr: Min heart rate.
 - std_hr: Standard deviation of heart rate.
 """
-def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
+def feature_extraction_td(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
     detectors = Detectors(fs)
 
     if four_problem == True:
@@ -119,7 +118,6 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_inter
     else:
         dict_list_time_domain_N = []
         dict_list_time_domain_Other = []
-    #dict_list_frequency_domain = []
 
 
     for idx, ecg_lead in enumerate(ecg_leads):
@@ -139,7 +137,6 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_inter
         if len(rr_intervals_list) <= 2:
             continue
         dict_time_domain = get_time_domain_features(rr_intervals_list)
-        #dict_frequency_domain = get_frequency_domain_features(rr_intervals_list)  # sollte laut documentation erst bei recordings von 2 - 5 Minuten genutzt werden
 
         if four_problem == True:
             if ecg_labels[idx] == 'N':
@@ -171,11 +168,165 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem = False, nn_inter
 
 
     if four_problem:
-        return dict_list_time_domain_N, dict_list_time_domain_A, dict_list_time_domain_O, dict_list_time_domain_Noise
-    return dict_list_time_domain_N, dict_list_time_domain_Other
+        dictionary_list = [dict_list_time_domain_N, dict_list_time_domain_A, dict_list_time_domain_O,
+                           dict_list_time_domain_Noise]
+        return dictionary_list
+    else:
+        dictionary_list = [dict_list_time_domain_N, dict_list_time_domain_Other]
+        return dictionary_list
 
-#dict_list_td_N, dict_list_td_Other = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False)
-dict_list_td_N, dict_list_td_A, dict_list_td_O, dict_list_td_Noise = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, nn_intervals=False)
+
+"""
+Features der Frequqncy Domain - sollte laut documentation erst bei recordings von 2 - 5 Minuten genutzt werden
+
+Return: Dictionaries mit den verschiedenen Größen:
+
+total_power : Total power density spectral
+vlf : variance ( = power ) in HRV in the Very low Frequency (.003 to .04 Hz by default). 
+Reflect an intrinsic rhythm produced by the heart which is modulated primarily by sympathetic activity.
+lf : variance ( = power ) in HRV in the low Frequency (.04 to .15 Hz). Reflects a mixture of sympathetic and 
+parasympathetic activity, but in long-term recordings, it reflects sympathetic activity and can be reduced by the 
+beta-adrenergic antagonist propanolol.
+hf: variance ( = power ) in HRV in the High Frequency (.15 to .40 Hz by default). Reflects fast changes in beat-to-beat 
+variability due to parasympathetic (vagal) activity. Sometimes called the respiratory band because it corresponds to HRV
+changes related to the respiratory cycle and can be increased by slow, deep breathing (about 6 or 7 breaths per minute) 
+and decreased by anticholinergic drugs or vagal blockade.
+lf_hf_ratio : lf/hf ratio is sometimes used by some investigators as a quantitative mirror of the sympatho/vagal balance
+lfnu : normalized lf power.
+hfnu : normalized hf power.
+"""
+def feature_extraction_fd(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):   #
+    detectors = Detectors(fs)
+
+    if four_problem == True:
+        dict_list_frequency_domain_N = []
+        dict_list_frequency_domain_A = []
+        dict_list_frequency_domain_O = []
+        dict_list_frequency_domain_Noise = []
+    else:
+        dict_list_frequency_domain_N = []
+        dict_list_frequency_domain_Other = []
+
+    for idx, ecg_lead in enumerate(ecg_leads):
+        rr_intervals = detectors.hamilton_detector(ecg_lead)
+        if len(rr_intervals) == 1:
+            continue
+        rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
+
+        if nn_intervals:
+            rr_intervals_list = get_nn_intervals(rr_intervals=rr_intervals_ms,
+                                                 interpolation_method='linear',
+                                                 ectopic_beats_removal_method='malik',
+                                                 low_rri=300, high_rri=2000)
+        else:
+            rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
+            rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
+        if len(rr_intervals_list) <= 2:
+            continue
+
+        dict_frequency_domain = get_frequency_domain_features(rr_intervals_list, sampling_frequency=fs) # muss ggf. angepasst werden für andere Werte
+
+        if four_problem == True:
+            if ecg_labels[idx] == 'N':
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_N.append(dict_copy)
+            if ecg_labels[idx] == 'A':
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_A.append(dict_copy)
+            if ecg_labels[idx] == 'O':
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_O.append(dict_copy)
+            if ecg_labels[idx] == '~':
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_Noise.append(dict_copy)
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+        else:
+            if ecg_labels[idx] == 'N':
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_N.append(dict_copy)
+                #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+            else:
+                dict_copy = dict_frequency_domain.copy()
+                dict_list_frequency_domain_Other.append(dict_copy)
+                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    if four_problem:
+        dictionary_list = [dict_list_frequency_domain_N, dict_list_frequency_domain_A, dict_list_frequency_domain_O,
+                           dict_list_frequency_domain_Noise]
+        return dictionary_list
+    else:
+        dictionary_list = [dict_list_frequency_domain_N, dict_list_frequency_domain_Other]
+        return dictionary_list
+
+def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
+    detectors = Detectors(fs)
+
+    if four_problem == True:
+        dict_list_geometrical_N = []
+        dict_list_geometrical_A = []
+        dict_list_geometrical_O = []
+        dict_list_geometrical_Noise = []
+    else:
+        dict_list_geometrical_N = []
+        dict_list_geometrical_Other = []
+
+    for idx, ecg_lead in enumerate(ecg_leads):
+        rr_intervals = detectors.hamilton_detector(ecg_lead)
+        if len(rr_intervals) == 1:
+            continue
+        rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
+
+        if nn_intervals:
+            rr_intervals_list = get_nn_intervals(rr_intervals=rr_intervals_ms,
+                                                 interpolation_method='linear',
+                                                 ectopic_beats_removal_method='malik',
+                                                 low_rri=300, high_rri=2000)
+        else:
+            rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
+            rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
+        if len(rr_intervals_list) <= 2:
+            continue
+        dict_time_domain = get_geometrical_features(rr_intervals_list)
+
+        if four_problem == True:
+            if ecg_labels[idx] == 'N':
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_N.append(dict_copy)
+            if ecg_labels[idx] == 'A':
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_A.append(dict_copy)
+            if ecg_labels[idx] == 'O':
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_O.append(dict_copy)
+            if ecg_labels[idx] == '~':
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_Noise.append(dict_copy)
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+        else:
+            if ecg_labels[idx] == 'N':
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_N.append(dict_copy)
+                # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+            else:
+                dict_copy = dict_time_domain.copy()
+                dict_list_geometrical_Other.append(dict_copy)
+                # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    if four_problem:
+        dictionary_list = [dict_list_geometrical_N, dict_list_geometrical_A, dict_list_geometrical_O,
+                           dict_list_geometrical_Noise]
+        return dictionary_list
+    else:
+        dictionary_list = [dict_list_geometrical_N, dict_list_geometrical_Other]
+        return dictionary_list
 
 def histoplot(heart_rate, bins):
     plt.hist(heart_rate, bins, range=[min(heart_rate),max(heart_rate)])
@@ -187,14 +338,18 @@ def histoplot(heart_rate, bins):
     min_hr = min(heart_rate)
     print("HR-min: ", min_hr, "HR-max: ", max_hr, "HR-mean: ", mean_hr)
 
-def hr_analysis(dictionary, bins=50):
-    heart_rate = []
-    for i in range(len(dictionary)):
-        dict_temp = dictionary[i]
-        heart_rate.append(dict_temp['mean_hr'])
-    histoplot(heart_rate, bins)
-
-dictionaries = [dict_list_td_N, dict_list_td_A, dict_list_td_O, dict_list_td_Noise]
-for i in range(len(dictionaries)):
-    temp_dict = dictionaries[i]
-    hr_analysis(temp_dict, 50)
+def hr_analysis(dictionary_list, bins=50, is_fourproblem=False):
+    if is_fourproblem:
+        for i in range(3):
+            heart_rate = []
+            for j in range(len(dictionary_list)):
+                dict_temp = dictionary_list[i]
+                heart_rate.append(dict_temp['mean_hr'])
+            histoplot(heart_rate, bins)
+    else:
+        for i in range(1):
+            heart_rate = []
+            for j in range(len(dictionary_list)):
+                dict_temp = dictionary_list[i]
+                heart_rate.append(dict_temp['mean_hr'])
+            histoplot(heart_rate, bins)
