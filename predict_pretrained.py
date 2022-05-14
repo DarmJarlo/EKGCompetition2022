@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
     parser.add_argument('--test_dir', action='store',type=str,default='../test/')
     parser.add_argument('--model_name', action='store',type=str,default='model.npy')
-    args = parser.parse_args()
+    args = parser.parse_args()#here args has two parameter when run, type in '-h'
     
     ecg_leads,ecg_labels,fs,ecg_names = load_references(args.test_dir) # Importiere EKG-Dateien, zugehörige Diagnose, Sampling-Frequenz (Hz) und Name                                                # Sampling-Frequenz 300 Hz
     
