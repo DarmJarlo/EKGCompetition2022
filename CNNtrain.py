@@ -71,3 +71,21 @@ plt.show()
 #  the other data with short length and for the long data, we divide it
 # and padd the short part
 #but maybe we should first ignore all the noise data
+
+#and i think we must do some smoothing towards this template
+
+
+model = Sequential()
+model.add(Conv2D(32, kernel_size=3, input_shape=9000))
+model.add(Activation(act_func))
+model.add(MaxPooling2D(pool_size=(2,2)))
+model.add(Conv2D(32, kernel_size=3, input_shape=9000))
+model.add(Activation(act_func))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Flatten())
+model.add(Dense(100, activation='relu'))
+model.add(Dense(4, activation='softmax'))
+
+model.compile(loss='binary_crossentropy',optimizer = 'adam')
+
+model.fit(x,y,batch_size=32)
