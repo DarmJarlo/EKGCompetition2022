@@ -1,6 +1,10 @@
 from wettbewerb import load_references
 import numpy as np
 from matplotlib import pyplot as plt
+import Locate
+import neurokit2 as nk
+import matplotlib.pyplot as plt
+
 '''https://www.youtube.com/watch?v=WvoLTXIjBYU
 https://keras.io/api/layers/pooling_layers/max_pooling2d/
 import tensorflow.keras as keras
@@ -24,8 +28,16 @@ model.add(Dense(100, activation='relu'))
 model.add(Dense(4, activation='softmax'))
 
 '''
+plt.rcParams['figure.figsize'] = [8, 5]
 ecg_leads,ecg_labels,fs,ecg_names = load_references()
-print(ecg_labels)
+_, rpeaks = nk.ecg_peaks(ecg_leads[0], sampling_rate=30)
+# Visualize R-peaks in ECG signal
+plot = nk.events_plot(rpeaks['ECG_R_Peaks'], ecg_leads[0])
+plt.show()
+
+print(_)
+'''
+print(ecg_labels)ds
 for i in range(len(ecg_labels)):
     ecg_labels[i] = 0 if ecg_labels[i] == 'N'else 1 if ecg_labels[i] == 'A'else 2 if ecg_labels[i] == 'O'else 3 if ecg_labels[i]== '~' else ecg_labels
     #normal 0 afib 1 othre 2 noise 3
@@ -89,3 +101,5 @@ model.add(Dense(4, activation='softmax'))
 model.compile(loss='binary_crossentropy',optimizer = 'adam')
 
 model.fit(x,y,batch_size=32)
+
+'''
