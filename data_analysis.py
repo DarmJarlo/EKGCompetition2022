@@ -55,7 +55,7 @@ def standardize(ecg_leads, cropping=False):
 """Removal of Baseline-Drift"""
 def baseline(ecg_leads, fs):
     ecg_leads_baselined = []
-    kernel_1 = 0.2/(1/fs)    #Wurden auf 200 und 600ms gesetzt nach dem Paper
+    kernel_1 = 0.2/(1/fs)    # Wurden auf 200 und 600ms gesetzt nach dem Paper
     kernel_2 = 0.6/(1/fs)
     kernel_1 = int(kernel_1)
     kernel_2 = int(kernel_2)
@@ -76,12 +76,12 @@ def baseline(ecg_leads, fs):
     return ecg_leads_baselined
 
 
-
 """ 
 Feature Extraction: Time and Frequency Domain possible
-- Frequency domain aber eigentlich nur bei Samples zwischen 2-5 Minuten, deshalb auskommentiert
+- Frequency domain aber eigentlich nur bei Samples zwischen 2-5 Minuten
 - Features werden pro Iteration in einem Dictionary zurückgegeben und in einer Liste gespeichert
 - Flags geben an, ob 2-Klassen- oder 4-Klassen-Problem und wie stark die Vorverarbeitung dieser Library ist
+- each_by_one teilt die Daten in 4 Vektoren auf
 
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.preprocessing
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features
@@ -114,23 +114,19 @@ greater than 20 ms) by the total number of RR-intervals.
 """
 
 
-def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False, each_by_one=False):
     detectors = Detectors(fs)
-
-    if four_problem:
-        #dict_list_time_domain_N = []
-        #dict_list_time_domain_A = []
-        #dict_list_time_domain_O = []
-        #dict_list_time_domain_Noise = []
-        feature_vector_time_domain_N = np.array([])
-        feature_vector_time_domain_A = np.array([])
-        feature_vector_time_domain_O = np.array([])
-        feature_vector_time_domain_Noise = np.array([])
+    if each_by_one:
+        if four_problem:
+            feature_vector_time_domain_N = np.array([])
+            feature_vector_time_domain_A = np.array([])
+            feature_vector_time_domain_O = np.array([])
+            feature_vector_time_domain_Noise = np.array([])
+        else:
+            feature_vector_time_domain_N = np.array([])
+            feature_vector_time_domain_A = np.array([])
     else:
-        #dict_list_time_domain_N = []
-        #dict_list_time_domain_Other = []
-        feature_vector_time_domain_N = np.array([])
-        feature_vector_time_domain_Other = np.array([])
+        feature_vector_time_domain = np.array([])
 
 
     for idx, ecg_lead in enumerate(ecg_leads):
@@ -154,64 +150,96 @@ def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False
 
         dict_time_domain = get_time_domain_features(rr_intervals_list)
 
-        if four_problem:
-            if ecg_labels[idx] == 'N':
-                #dict_copy = dict_time_domain.copy()
-                #dict_list_time_domain_N.append(dict_copy)
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
-            if ecg_labels[idx] == 'A':
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_A = np.append(feature_vector_time_domain_A, values)
-            if ecg_labels[idx] == 'O':
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_O = np.append(feature_vector_time_domain_O, values)
-            if ecg_labels[idx] == '~':
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_Noise = np.append(feature_vector_time_domain_Noise, values)
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        if each_by_one:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_A = np.append(feature_vector_time_domain_A, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_O = np.append(feature_vector_time_domain_O, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_Noise = np.append(feature_vector_time_domain_Noise, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-        else:
-            if ecg_labels[idx] == 'N':
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
-                #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             else:
-                values = list(dict_time_domain.values())
-                feature_vector_time_domain_Other = np.append(feature_vector_time_domain_Other, values)
-                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
+                    #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_time_domain.values())
+                    feature_vector_time_domain_A = np.append(feature_vector_time_domain_A, values)
+                    #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        else:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_time_domain.values())
+                    values.append(0)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_time_domain.values())
+                    values.append(1)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_time_domain.values())
+                    values.append(2)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_time_domain.values())
+                    values.append(3)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
+            else:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_time_domain.values())
+                    values.append(0)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                    #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_time_domain.values())
+                    values.append(1)
+                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
+                    #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-    if four_problem:
-        #dictionary_list = [dict_list_time_domain_N, dict_list_time_domain_A, dict_list_time_domain_O,
-        #                   dict_list_time_domain_Noise]
-        #return dictionary_list
-        feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
-                                                  (int(len(feature_vector_time_domain_N) / 16), 16))
-        feature_vector_time_domain_A = np.reshape(feature_vector_time_domain_A,
-                                                  (int(len(feature_vector_time_domain_A) / 16), 16))
-        feature_vector_time_domain_O = np.reshape(feature_vector_time_domain_O,
-                                                  (int(len(feature_vector_time_domain_O) / 16), 16))
-        feature_vector_time_domain_Noise = np.reshape(feature_vector_time_domain_Noise,
+    if each_by_one:
+        if four_problem:
+            feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
+                                                    (int(len(feature_vector_time_domain_N) / 16), 16))
+            feature_vector_time_domain_A = np.reshape(feature_vector_time_domain_A,
+                                                    (int(len(feature_vector_time_domain_A) / 16), 16))
+            feature_vector_time_domain_O = np.reshape(feature_vector_time_domain_O,
+                                                    (int(len(feature_vector_time_domain_O) / 16), 16))
+            feature_vector_time_domain_Noise = np.reshape(feature_vector_time_domain_Noise,
                                                       (int(len(feature_vector_time_domain_Noise) / 16), 16))
-        return feature_vector_time_domain_N, feature_vector_time_domain_A, feature_vector_time_domain_O, feature_vector_time_domain_Noise
+            return feature_vector_time_domain_N, feature_vector_time_domain_A, feature_vector_time_domain_O, \
+                   feature_vector_time_domain_Noise
+        else:
+            feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
+                                                    (int(len(feature_vector_time_domain_N) / 16), 16))
+            feature_vector_time_domain_A = np.reshape(feature_vector_time_domain_A,
+                                                      (int(len(feature_vector_time_domain_A) / 16), 16))
+            return feature_vector_time_domain_N, feature_vector_time_domain_A
     else:
-        #dictionary_list = [dict_list_time_domain_N, dict_list_time_domain_Other]
-        #return dictionary_list
-        feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
-                                                  (int(len(feature_vector_time_domain_N) / 16), 16))
-        feature_vector_time_domain_Other = np.reshape(feature_vector_time_domain_Other,
-                                                      (int(len(feature_vector_time_domain_Other) / 16), 16))
-        return feature_vector_time_domain_N, feature_vector_time_domain_Other
+         feature_vector_time_domain = np.reshape(feature_vector_time_domain, (int(len(feature_vector_time_domain) / 17), 17))
+         return feature_vector_time_domain
 
 
 """
 Features der Frequqncy Domain - sollte laut documentation erst bei recordings von 2 - 5 Minuten genutzt werden
 
-Return: Dictionaries mit den verschiedenen Größen:
+Return: Feature Vektoren mit den verschiedenen Größen:
 
 total_power : Total power density spectral
 vlf : variance ( = power ) in HRV in the Very low Frequency (.003 to .04 Hz by default). 
@@ -229,23 +257,20 @@ hfnu : normalized hf power.
 """
 
 
-def feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False):
+def feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem = False, nn_intervals = False, each_by_one=False):
     detectors = Detectors(fs)
 
-    if four_problem:
-        #dict_list_frequency_domain_N = []
-        #dict_list_frequency_domain_A = []
-        #dict_list_frequency_domain_O = []
-        #dict_list_frequency_domain_Noise = []
-        feature_vector_frequency_domain_N = np.array([])
-        feature_vector_frequency_domain_A = np.array([])
-        feature_vector_frequency_domain_O = np.array([])
-        feature_vector_frequency_domain_Noise = np.array([])
+    if each_by_one:
+        if four_problem:
+            feature_vector_frequency_domain_N = np.array([])
+            feature_vector_frequency_domain_A = np.array([])
+            feature_vector_frequency_domain_O = np.array([])
+            feature_vector_frequency_domain_Noise = np.array([])
+        else:
+            feature_vector_frequency_domain_N = np.array([])
+            feature_vector_frequency_domain_A = np.array([])
     else:
-        #dict_list_frequency_domain_N = []
-        #dict_list_frequency_domain_Other = []
-        feature_vector_frequency_domain_N = np.array([])
-        feature_vector_frequency_domain_Other = np.array([])
+        feature_vector_frequency_domain = np.array([])
 
     for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
@@ -270,58 +295,90 @@ def feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem 
 
         dict_frequency_domain = get_frequency_domain_features(rr_intervals_list, sampling_frequency=fs) # muss ggf. angepasst werden für andere Werte
 
-        if four_problem:
-            if ecg_labels[idx] == 'N':
-                #dict_copy = dict_frequency_domain.copy()
-                #dict_list_frequency_domain_N.append(dict_copy)
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_N = np.append(feature_vector_frequency_domain_N, values)
-            if ecg_labels[idx] == 'A':
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_O = np.append(feature_vector_frequency_domain_O, values)
-            if ecg_labels[idx] == 'O':
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_A = np.append(feature_vector_frequency_domain_A, values)
-            if ecg_labels[idx] == '~':
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_Noise = np.append(feature_vector_frequency_domain_Noise, values)
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        if each_by_one:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_N = np.append(feature_vector_frequency_domain_N, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_A = np.append(feature_vector_frequency_domain_A, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_O = np.append(feature_vector_frequency_domain_O, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_Noise = np.append(feature_vector_frequency_domain_Noise, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-        else:
-            if ecg_labels[idx] == 'N':
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_N = np.append(feature_vector_frequency_domain_N, values)
-                #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             else:
-                values = list(dict_frequency_domain.values())
-                feature_vector_frequency_domain_Other = np.append(feature_vector_frequency_domain_Other, values)
-                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_N = np.append(feature_vector_frequency_domain_N, values)
+                    # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_frequency_domain.values())
+                    feature_vector_frequency_domain_A = np.append(feature_vector_frequency_domain_A, values)
+                    # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        else:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_frequency_domain.values())
+                    values.append(0)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_frequency_domain.values())
+                    values.append(1)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_frequency_domain.values())
+                    values.append(2)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_frequency_domain.values())
+                    values.append(3)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-    if four_problem:
-        #dictionary_list = [dict_list_frequency_domain_N, dict_list_frequency_domain_A, dict_list_frequency_domain_O,
-        #                   dict_list_frequency_domain_Noise]
-        #return dictionary_list
-        feature_vector_frequency_domain_N = np.reshape(feature_vector_frequency_domain_N,
-                                                  (int(len(feature_vector_frequency_domain_N) / 7), 7))
-        feature_vector_frequency_domain_A = np.reshape(feature_vector_frequency_domain_A,
-                                                  (int(len(feature_vector_frequency_domain_A) / 7), 7))
-        feature_vector_frequency_domain_O = np.reshape(feature_vector_frequency_domain_O,
-                                                  (int(len(feature_vector_frequency_domain_O) / 7), 7))
-        feature_vector_frequency_domain_Noise = np.reshape(feature_vector_frequency_domain_Noise,
+            else:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_frequency_domain.values())
+                    values.append(0)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                    # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_frequency_domain.values())
+                    values.append(1)
+                    feature_vector_frequency_domain = np.append(feature_vector_frequency_domain, values)
+                    # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    if each_by_one:
+        if four_problem:
+            feature_vector_frequency_domain_N = np.reshape(feature_vector_frequency_domain_N,
+                                                    (int(len(feature_vector_frequency_domain_N) / 7), 7))
+            feature_vector_frequency_domain_A = np.reshape(feature_vector_frequency_domain_A,
+                                                    (int(len(feature_vector_frequency_domain_A) / 7), 7))
+            feature_vector_frequency_domain_O = np.reshape(feature_vector_frequency_domain_O,
+                                                    (int(len(feature_vector_frequency_domain_O) / 7), 7))
+            feature_vector_frequency_domain_Noise = np.reshape(feature_vector_frequency_domain_Noise,
                                                       (int(len(feature_vector_frequency_domain_Noise) / 7), 7))
-        return feature_vector_frequency_domain_N, feature_vector_frequency_domain_A, feature_vector_frequency_domain_O, \
-               feature_vector_frequency_domain_Noise
+            return feature_vector_frequency_domain_N, feature_vector_frequency_domain_A, feature_vector_frequency_domain_O, \
+                   feature_vector_frequency_domain_Noise
+        else:
+            feature_vector_frequency_domain_N = np.reshape(feature_vector_frequency_domain_N,
+                                                    (int(len(feature_vector_frequency_domain_N) / 16), 16))
+            feature_vector_frequency_domain_A = np.reshape(feature_vector_frequency_domain_A,
+                                                      (int(len(feature_vector_frequency_domain_A) / 16), 16))
+            return feature_vector_frequency_domain_N, feature_vector_frequency_domain_A
     else:
-        #dictionary_list = [dict_list_frequency_domain_N, dict_list_frequency_domain_Other]
-        #return dictionary_list
-        feature_vector_frequency_domain_N = np.reshape(feature_vector_frequency_domain_N,
-                                                  (int(len(feature_vector_frequency_domain_N) / 7), 7))
-        feature_vector_frequency_domain_Other = np.reshape(feature_vector_frequency_domain_Other,
-                                                      (int(len(feature_vector_frequency_domain_Other) / 7), 7))
-        return feature_vector_frequency_domain_N, feature_vector_frequency_domain_Other
+         feature_vector_frequency_domain = np.reshape(feature_vector_frequency_domain, (int(len(feature_vector_frequency_domain) / 8), 8))
+         return feature_vector_frequency_domain
 
 
 """
@@ -334,23 +391,20 @@ as a base of a triangle, approximating the NN-interval distribution
 """
 
 
-def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False, each_by_one=False):
     detectors = Detectors(fs)
 
-    if four_problem:
-        #dict_list_geometrical_N = []
-        #dict_list_geometrical_A = []
-        #dict_list_geometrical_O = []
-        #dict_list_geometrical_Noise = []
-        feature_vector_geometrical_N = np.array([])
-        feature_vector_geometrical_A = np.array([])
-        feature_vector_geometrical_O = np.array([])
-        feature_vector_geometrical_Noise = np.array([])
+    if each_by_one:
+        if four_problem:
+            feature_vector_geometrical_N = np.array([])
+            feature_vector_geometrical_A = np.array([])
+            feature_vector_geometrical_O = np.array([])
+            feature_vector_geometrical_Noise = np.array([])
+        else:
+            feature_vector_geometrical_N = np.array([])
+            feature_vector_geometrical_A = np.array([])
     else:
-        #dict_list_geometrical_N = []
-        #dict_list_geometrical_Other = []
-        feature_vector_geometrical_N = np.array([])
-        feature_vector_geometrical_Other = np.array([])
+        feature_vector_geometrical = np.array([])
 
     for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
@@ -373,60 +427,91 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem=False
 
         dict_geometrical = get_geometrical_features(rr_intervals_list)
 
-        if four_problem == True:
-            if ecg_labels[idx] == 'N':
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_N = np.append(feature_vector_geometrical_N, values)
-            if ecg_labels[idx] == 'A':
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_A = np.append(feature_vector_geometrical_A, values)
-            if ecg_labels[idx] == 'O':
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_O = np.append(feature_vector_geometrical_O, values)
-            if ecg_labels[idx] == '~':
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_Noise = np.append(feature_vector_geometrical_Noise, values)
-                #dict_copy = dict_time_domain.copy()
-                #dict_list_geometrical_Noise.append(dict_copy)
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        if each_by_one:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_N = np.append(feature_vector_geometrical_N, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_A = np.append(feature_vector_geometrical_A, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_O = np.append(feature_vector_geometrical_O, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_Noise = np.append(feature_vector_geometrical_Noise, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-        else:
-            if ecg_labels[idx] == 'N':
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_N = np.append(feature_vector_geometrical_N, values)
-                #dict_copy = dict_time_domain.copy()
-                #dict_list_geometrical_N.append(dict_copy)
-                #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
             else:
-                values = list(dict_geometrical.values())
-                feature_vector_geometrical_Other = np.append(feature_vector_geometrical_Other, values)
-                #dict_copy = dict_time_domain.copy()
-                #dict_list_geometrical_Other.append(dict_copy)
-                #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-            if (idx % 100) == 0:
-                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_N = np.append(feature_vector_geometrical_N, values)
+                    # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_geometrical.values())
+                    feature_vector_geometrical_A = np.append(feature_vector_geometrical_A, values)
+                    # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        else:
+            if four_problem:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_geometrical.values())
+                    values.append(0)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                if ecg_labels[idx] == 'A':
+                    values = list(dict_geometrical.values())
+                    values.append(1)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                if ecg_labels[idx] == 'O':
+                    values = list(dict_geometrical.values())
+                    values.append(2)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                if ecg_labels[idx] == '~':
+                    values = list(dict_geometrical.values())
+                    values.append(3)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+            else:
+                if ecg_labels[idx] == 'N':
+                    values = list(dict_geometrical.values())
+                    values.append(0)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                    # print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                elif ecg_labels[idx] == 'A':
+                    values = list(dict_geometrical.values())
+                    values.append(1)
+                    feature_vector_geometrical = np.append(feature_vector_geometrical, values)
+                    # print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
+                if (idx % 100) == 0:
+                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
     "Reshape of Feature Vectors"
-    if four_problem:
-        feature_vector_geometrical_N = np.reshape(feature_vector_geometrical_N,
-                                                  (int(len(feature_vector_geometrical_N) / 2), 2))
-        feature_vector_geometrical_A = np.reshape(feature_vector_geometrical_A,
-                                                  (int(len(feature_vector_geometrical_A) / 2), 2))
-        feature_vector_geometrical_O = np.reshape(feature_vector_geometrical_O,
-                                                  (int(len(feature_vector_geometrical_O) / 2), 2))
-        feature_vector_geometrical_Noise = np.reshape(feature_vector_geometrical_Noise,
+    if each_by_one:
+        if four_problem:
+            feature_vector_geometrical_N = np.reshape(feature_vector_geometrical_N,
+                                                    (int(len(feature_vector_geometrical_N) / 2), 2))
+            feature_vector_geometrical_A = np.reshape(feature_vector_geometrical_A,
+                                                    (int(len(feature_vector_geometrical_A) / 2), 2))
+            feature_vector_geometrical_O = np.reshape(feature_vector_geometrical_O,
+                                                    (int(len(feature_vector_geometrical_O) / 2), 2))
+            feature_vector_geometrical_Noise = np.reshape(feature_vector_geometrical_Noise,
                                                       (int(len(feature_vector_geometrical_Noise) / 2), 2))
-        return feature_vector_geometrical_N, feature_vector_geometrical_A, feature_vector_geometrical_O, \
-               feature_vector_geometrical_Noise
+            return feature_vector_geometrical_N, feature_vector_geometrical_A, feature_vector_geometrical_O, \
+                   feature_vector_geometrical_Noise
+        else:
+            feature_vector_geometrical_N = np.reshape(feature_vector_geometrical_N,
+                                                    (int(len(feature_vector_geometrical_N) / 2), 2))
+            feature_vector_geometrical_A = np.reshape(feature_vector_geometrical_A,
+                                                      (int(len(feature_vector_geometrical_A) / 2), 2))
+            return feature_vector_geometrical_N, feature_vector_geometrical_A
     else:
-        #dictionary_list = [dict_list_geometrical_N, dict_list_geometrical_Other]
-        #return dictionary_list
-        feature_vector_geometrical_N = np.reshape(feature_vector_geometrical_N,
-                                                  (int(len(feature_vector_geometrical_N) / 2), 2))
-        feature_vector_geometrical_Other = np.reshape(feature_vector_geometrical_Other,
-                                                      (int(len(feature_vector_geometrical_Other) / 2), 2))
-        return feature_vector_geometrical_N, feature_vector_geometrical_Other
+         feature_vector_geometrical = np.reshape(feature_vector_geometrical, (int(len(feature_vector_geometrical) / 3), 3))
+         return feature_vector_geometrical
 
 
 def histoplot(heart_rate, bins):
