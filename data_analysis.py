@@ -8,8 +8,10 @@ from wettbewerb import load_references
 from collections import Counter
 from scipy.signal import medfilt
 from ecgdetectors import Detectors
-from hrvanalysis import get_time_domain_features, get_frequency_domain_features, get_geometrical_features
+import hrvanalysis as hrv
 from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
+import random
+import pandas as pd
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
@@ -116,6 +118,7 @@ greater than 20 ms) by the total number of RR-intervals.
 
 def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False, each_by_one=False):
     detectors = Detectors(fs)
+
     if each_by_one:
         if four_problem:
             feature_vector_time_domain_N = np.array([])
@@ -128,11 +131,15 @@ def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False
     else:
         feature_vector_time_domain = np.array([])
 
-
     for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
         if len(rr_intervals) == 1:
-            continue
+            # continue
+            rr_intervals = np.abs(rr_intervals)
+            arti_rr_1 = rr_intervals * random.random()
+            arti_rr_2 = rr_intervals * random.random()
+            rr_intervals = np.append(rr_intervals, [arti_rr_1])
+            rr_intervals = np.append(rr_intervals, [arti_rr_2])
         rr_intervals_ms = np.diff(rr_intervals)/fs*1000 # Umwandlung in ms
 
         if nn_intervals:
@@ -144,11 +151,13 @@ def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False
             rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
             rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
-        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
-        if len(rr_intervals_list) <= 2:
-            continue
+        #rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
 
-        dict_time_domain = get_time_domain_features(rr_intervals_list)
+        if len(rr_intervals_list) <= 2:
+            mean_rr = np.nanmean(rr_intervals_list, axis=0)
+            rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
+
+        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)
 
         if each_by_one:
             if four_problem:
@@ -293,7 +302,7 @@ def feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem 
         if len(rr_intervals_list) <= 2:
             continue
 
-        dict_frequency_domain = get_frequency_domain_features(rr_intervals_list, sampling_frequency=fs) # muss ggf. angepasst werden für andere Werte
+        dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list, sampling_frequency=fs) # muss ggf. angepasst werden für andere Werte
 
         if each_by_one:
             if four_problem:
@@ -425,7 +434,7 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem=False
         if len(rr_intervals_list) <= 2:
             continue
 
-        dict_geometrical = get_geometrical_features(rr_intervals_list)
+        dict_geometrical = hrv.get_geometrical_features(rr_intervals_list)
 
         if each_by_one:
             if four_problem:
@@ -513,6 +522,188 @@ def feature_extraction_geometrical(ecg_leads, ecg_labels, fs, four_problem=False
          feature_vector_geometrical = np.reshape(feature_vector_geometrical, (int(len(feature_vector_geometrical) / 3), 3))
          return feature_vector_geometrical
 
+
+"""
+Extraction of all kinds of features given by hrv-analysis library
+
+- time domain features
+- frequency domain features
+- geometrical features
+- point-care features
+- csi-csv features
+- sample entropy 
+
+Target classes values are between [0,3]
+0 = Normal
+1 = AFib
+2 = Other
+3 = Noise
+
+"""
+
+
+def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+    detectors = Detectors(fs)
+
+    feature_vector = np.array([])
+    targets = np.array([])
+
+    ecg_leads= baseline(ecg_leads, fs)
+
+    for idx, ecg_lead in enumerate(ecg_leads):
+        rr_intervals = detectors.hamilton_detector(ecg_lead)
+        if len(rr_intervals) == 1:
+            rr_intervals = np.abs(rr_intervals)
+            arti_rr_1 = rr_intervals * random.random()
+            rr_intervals = np.append(rr_intervals, [arti_rr_1])
+
+        rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
+
+        if nn_intervals:
+            rr_intervals_list = get_nn_intervals(rr_intervals=rr_intervals_ms,
+                                                 interpolation_method='linear',
+                                                 ectopic_beats_removal_method='malik',
+                                                 low_rri=300, high_rri=2000)
+        else:
+            rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
+            rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
+
+        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
+
+        if len(rr_intervals_list) <= 2:
+            mean_rr = np.nanmean(rr_intervals_list)
+            rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
+            arti_rr_1 = rr_intervals_list[0] * random.random()
+            rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
+
+        rr_intervals_list = [abs(number) for number in rr_intervals_list]
+
+        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)
+        dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
+        dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
+        dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
+        dict_entropy = hrv.get_sampen(rr_intervals_list)
+        dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
+
+        if four_problem:
+            if ecg_labels[idx] == 'N':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 0)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if ecg_labels[idx] == 'A':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 1)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if ecg_labels[idx] == 'O':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 2)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if ecg_labels[idx] == '~':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 3)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if (idx % 100) == 0:
+               print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+        else:
+            if ecg_labels[idx] == 'N':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 0)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if ecg_labels[idx] == 'A':
+                values_time = list(dict_time_domain.values())
+                values_frequency = list(dict_frequency_domain.values())
+                values_geometrical = list(dict_geometrical_features.values())
+                values_pointcare = list(dict_pointcare.values())
+                values_entropy = list(dict_entropy.values())
+                values_csicsv = list(dict_csi_csv.values())
+                targets = np.append(targets, 1)
+
+                feature_vector = np.append(feature_vector, values_time)
+                feature_vector = np.append(feature_vector, values_frequency)
+                feature_vector = np.append(feature_vector, values_geometrical)
+                feature_vector = np.append(feature_vector, values_pointcare)
+                feature_vector = np.append(feature_vector, values_entropy)
+                feature_vector = np.append(feature_vector, values_csicsv)
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))
+    feature_vector[:,24] = 0
+
+    feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
+                    'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
+                     'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
+                     'csi', 'cvi', 'Modified_csi', 'sampen']
+    index = np.arange(len(feature_vector))
+    df = pd.DataFrame(data=feature_vector, index=index, columns=feature_names)
+
+    df = df.replace([np.inf, -np.inf], np.nan)
+    column_means = df.mean()
+    df = df.fillna(column_means)
+
+    feature_vector = df.to_numpy()
+
+    return feature_vector, targets.T
+
+
+#features, targets = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False)
+#print(features)
 
 def histoplot(heart_rate, bins):
     plt.hist(heart_rate, bins, range=[min(heart_rate),max(heart_rate)])
