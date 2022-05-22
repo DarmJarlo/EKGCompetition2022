@@ -548,8 +548,6 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     feature_vector = np.array([])
     targets = np.array([])
 
-    ecg_leads= baseline(ecg_leads, fs)
-
     for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
         if len(rr_intervals) == 1:
