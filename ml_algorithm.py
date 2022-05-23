@@ -61,7 +61,6 @@ def frequency_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals
     plt.show()
 
 
-
 def features_of_both(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
     features_time_domain = analysis.feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem,
                                                                    nn_intervals)
@@ -77,16 +76,29 @@ def features_of_both(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals
     for row, col in zip(*indices):
         X[row, col] = np.mean(X[~np.isnan(X[:, col]), col])
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 
-    rf = RandomForestClassifier(n_estimators=150, n_jobs=-1, max_samples=15)
+    rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
     rf.fit(X_train, y_train)
     return rf, X_test, y_test
 
 
-trained_rf, X_test, y_test = features_of_both(ecg_leads, ecg_labels, fs, four_problem=True, nn_intervals=False)
+def feature_training(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=True):
+    features, targets = analysis.feature_extraction(ecg_leads, ecg_labels, fs, four_problem, nn_intervals)
+
+    X = features
+    y = targets
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
+    rf.fit(X_train, y_train)
+    return rf, X_test, y_test
+
+
+trained_rf, X_test, y_test = feature_training(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False)
 y_pred = trained_rf.predict(X_test)
 print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-print('Precision:', metrics.precision_score(y_test, y_pred,average=None)) #)) #,average=None))
+print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #,average=None))
 print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
 print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))

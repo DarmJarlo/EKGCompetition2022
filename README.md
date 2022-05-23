@@ -1,11 +1,9 @@
-# 18-ha-2010-pj
-Demo-Code zum Projektseminar "Wettbewerb künstliche Intelligenz in der Medizin" WiSe 2021/2022. Das Beispiel definiert gleichzeitig das Interface zu unserem Evaluierungs-System.
+# Team 404 Name not found
+Teammitglieder: Ellen, Jia und Noah
 
-## Erste Schritte
+## Model 1: Random Forest Classifier
+Kann als binary oder four_classes classifier trainiert und genutzt werden. Dafür in train.py "is_binary_classifier=False" setzen.
 
-1. Klone/Forke dieses Repository
-2. Richte ein eigenes Repository auf github/gitlab ein. Darüber könnt ihr später die Abgaben eurer Modelle machen.
-3. Python Environment anlegen (z.B. mit Anaconda), dann kann "requirements.txt" mit `pip install -r requirements.txt` ausgeführt werden und installiert die notwendigen Pakete 
 
 ## Wichtig!
 

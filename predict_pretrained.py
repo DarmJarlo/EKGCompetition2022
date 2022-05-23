@@ -20,7 +20,7 @@ import time
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
-    parser.add_argument('--test_dir', action='store',type=str,default='../test/')
+    parser.add_argument('--test_dir', action='store',type=str,default='../test_examples/')
     parser.add_argument('--model_name', action='store',type=str,default='model.npy')
     args = parser.parse_args()
     
