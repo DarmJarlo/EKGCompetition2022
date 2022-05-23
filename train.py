@@ -83,7 +83,7 @@ detectors = Detectors(fs)
 feature_vector = np.array([])  # create empty arrays for features and targets
 targets = np.array([])
 
-is_binary_classifier = True    # binary model or not
+is_binary_classifier = False    # binary model or not
 
 for idx, ecg_lead in enumerate(ecg_leads):
     rr_intervals = detectors.hamilton_detector(ecg_lead)
@@ -238,8 +238,15 @@ y = targets
 rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
 rf.fit(X, y)                # fit Random Forest Classifier
 
-if os.path.exists("model.npy"):
-    os.remove("model.npy")
-with open('model.npy', 'wb') as f:
-    pickle.dump(rf, f)          # save model
-    print('Training is done')
+if is_binary_classifier:
+    if os.path.exists("model_2p_1.npy"):
+        os.remove("model_2p_1.npy")
+    with open('model_2p_1.npy', 'wb') as f:
+        pickle.dump(rf, f)          # save model
+        print('Training is done')
+else:
+    if os.path.exists("model_4p_1.npy"):
+        os.remove("model_4p_1.npy")
+    with open('model_4p_1.npy', 'wb') as f:
+        pickle.dump(rf, f)          # save model
+        print('Training is done')
