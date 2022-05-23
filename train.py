@@ -7,7 +7,7 @@ Features were extracted via the different methods:
 (descriptions were copied from:
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features)
 
-- time domain features (
+- time domain features
     mean_nni: The mean of RR-intervals.
     sdnn : The standard deviation of the time interval between successive normal heart beats (i.e. the RR-intervals).
     sdsd: The standard deviation of differences between adjacent RR-intervals
@@ -105,7 +105,9 @@ for idx, ecg_lead in enumerate(ecg_leads):
         mean_rr = np.nanmean(rr_intervals_list)
         rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
         arti_rr_1 = rr_intervals_list[0] * random.random()
+        arti_rr_2 = rr_intervals_list[0] * random.random()
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
+        rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
     dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv
     dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)

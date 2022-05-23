@@ -63,6 +63,8 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
 
         rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
 
+        rr_intervals_ms = [abs(number) for number in rr_intervals_ms]
+
         rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
         rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
@@ -72,15 +74,15 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
             mean_rr = np.nanmean(rr_intervals_list)
             rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
             arti_rr_1 = rr_intervals_list[0] * random.random()
+            arti_rr_2 = rr_intervals_list[0] * random.random()
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
+            rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
         dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)
         dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
         dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
         dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
         dict_entropy = hrv.get_sampen(rr_intervals_list)
-
-        rr_intervals_list = [abs(number) for number in rr_intervals_list]
         dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
 
         values_time = list(dict_time_domain.values())
