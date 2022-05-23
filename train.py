@@ -4,10 +4,10 @@ Model 1: Random Forest Classifier
 
 Using the hrvanalysis library given by: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#
 Features were extracted via the different methods:
-(descriptions were copied from
+(descriptions were copied from:
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features)
 
-- time domain features:
+- time domain features (
     mean_nni: The mean of RR-intervals.
     sdnn : The standard deviation of the time interval between successive normal heart beats (i.e. the RR-intervals).
     sdsd: The standard deviation of differences between adjacent RR-intervals
@@ -94,18 +94,18 @@ for idx, ecg_lead in enumerate(ecg_leads):
 
     rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
 
-    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000) # preprocessing
+    rr_intervals_ms = [abs(number) for number in rr_intervals_ms]  # make rr_intervals positive
+
+    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # preprocessing
     rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
     rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
 
-    if len(rr_intervals_list) <= 2:       # frequency domain seems to need at least 3 values + first has to be positive
+    if len(rr_intervals_list) <= 2:       # frequency domain seems to need at least 3 values
         mean_rr = np.nanmean(rr_intervals_list)
         rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
         arti_rr_1 = rr_intervals_list[0] * random.random()
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
-
-    rr_intervals_list = [abs(number) for number in rr_intervals_list]
 
     dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv
     dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
@@ -145,6 +145,9 @@ for idx, ecg_lead in enumerate(ecg_leads):
             feature_vector = np.append(feature_vector, values_pointcare)
             feature_vector = np.append(feature_vector, values_entropy)
             feature_vector = np.append(feature_vector, values_csicsv)
+
+        if (idx % 100) == 0:
+            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
     else:
         if ecg_labels[idx] == 'N':
             values_time = list(dict_time_domain.values())
@@ -209,8 +212,6 @@ for idx, ecg_lead in enumerate(ecg_leads):
         if (idx % 100) == 0:
             print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
-        if (idx % 100) == 0:
-            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
 feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))  # reshape fv
 feature_vector[:, 24] = 0   # column 24 has None-values
@@ -233,7 +234,7 @@ X = feature_vector
 y = targets
 
 rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
-rf.fit(X, y)                # fit Random forest Classifier
+rf.fit(X, y)                # fit Random Forest Classifier
 
 if os.path.exists("model.npy"):
     os.remove("model.npy")
