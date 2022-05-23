@@ -2,7 +2,7 @@
 Teammitglieder: Ellen, Jia und Noah
 
 ## Model 1: Random Forest Classifier
-Kann als binary oder four_classes classifier genutzt werden. Dafür im train.py "is_binary_classifier=False" setzen.
+Kann als binary oder four_classes classifier trainiert und genutzt werden. Dafür in train.py "is_binary_classifier=False" setzen.
 
 
 ## Wichtig!

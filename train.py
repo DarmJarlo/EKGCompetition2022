@@ -58,7 +58,7 @@ https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalys
     Modified_csi : Modified CSI is an alternative measure in research of seizure detection.
 - sample entropy of the data
 
-can be trained as binary or four_classes classifier -> change is_binary_classifier to False if evaluate four_classes
+can be trained as binary or four_classes classifier -> change is_binary_classifier to False if train for four_classes
 
 model will be saved as 'model.npy'
 """
@@ -101,7 +101,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
 
     rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
 
-    if len(rr_intervals_list) <= 2:       # frequency domain seems to need at least 3 values
+    if len(rr_intervals_list) <= 2:       # frequency domain needs at least 3 values
         mean_rr = np.nanmean(rr_intervals_list)
         rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
         arti_rr_1 = rr_intervals_list[0] * random.random()
