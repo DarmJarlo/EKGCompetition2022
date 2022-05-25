@@ -13,6 +13,7 @@ numpy==1.18.5
 packaging==21.3
 pandas==1.1.0
 Pillow==9.1.1
+pip==21.2.2
 protobuf==3.20.1
 py-ecg-detectors==1.0.2
 pyerfa==2.0.0.1
@@ -25,4 +26,5 @@ scikit-learn==1.0.2
 scipy==1.4.1
 six==1.16.0
 threadpoolctl==3.1.0
+wheel==0.37.1
 wincertstore==0.2
