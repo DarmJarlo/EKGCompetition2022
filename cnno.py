@@ -16,10 +16,10 @@ import keras
 from sklearn.metrics import accuracy_score
 from keras import backend as K
 import sys
-#adopted from https://github.com/ismorphism/DeepECG/blob/master/CNN_ECG.py
+#adapted from https://github.com/ismorphism/DeepECG/blob/master/CNN_ECG.py
 #K.image_data_format('tf')  # For problems with ordering
 
-number_of_classes = 2
+
 
 
 def change(x):
@@ -28,21 +28,10 @@ def change(x):
         max_value = max(x[i, :])
         max_index = list(x[i, :]).index(max_value)
         answer[i] = max_index
-    return answer.astype(np.int)
+    return answer.astype(int)
 
 
 
-# Loading of .mat files from training directory. Only 9000 time steps from every ECG file is loaded
-
-#for i in range(len(mats)):
- #   if Train_data.loc[Train_data[0] == mats[i][:6], 1].values == 'N':
-  #      target_train[i] = 0
-   # elif Train_data.loc[Train_data[0] == mats[i][:6], 1].values == 'A':
-    #    target_train[i] = 1
-    #elif Train_data.loc[Train_data[0] == mats[i][:6], 1].values == 'O':
-     #   target_train[i] = 2
-    #else:
-     #   target_train[i] = 3
 ecg_leads,ecg_labels,fs,ecg_names = load_references()
 ecg_labels_std =[]
 ecg_leads_std=[]
@@ -63,11 +52,6 @@ for i in range(len(ecg_labels_std)):
     Label_set[i, :] = dummy
 
 
-# X = np.abs(numpy.fft.fft(X)) #some stuff
-
-# Normalization part
-# scaler = MinMaxScaler(feature_range=(0, 1))
-# X = scaler.fit_transform(X)
 
 mats = len(ecg_leads_std)
 print(ecg_leads_std.shape)
@@ -111,22 +95,11 @@ model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
 # #256 conv
 model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
-model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
-model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
+
 model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
 model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
-# #512 conv
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+
 
 # Dense part
 model.add(Flatten())
@@ -142,13 +115,9 @@ model.add(Dense(2, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5", monitor='val_accuracy',
                                save_weights_only=False, period=1, verbose=1, save_best_only=False)
-model.fit(X_train, Y_train, epochs=2, batch_size=batch_size, validation_data=(X_val, Y_val), verbose=2, shuffle=False,
+model.fit(X_train, Y_train, epochs=250, batch_size=batch_size, validation_data=(X_val, Y_val), verbose=2, shuffle=False,
           callbacks=[checkpointer])
 model.save('Keras_models/my_model_' + '.h5')
 predictions = model.predict(X_val)
 score = accuracy_score(change(Y_val), change(predictions))
 print(score)
-# Data[i - starti, j - starti] = str(format(score, '.5f'))
-# Output = pd.DataFrame(Data)
-# name = str(batch_size) + '.csv'
-# Output.to_csv(path_or_buf='Keras_models/' + name, index=None, header=None)
