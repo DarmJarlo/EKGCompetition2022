@@ -40,7 +40,9 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
     '''
 
 #------------------------------------------------------------------------------
-# Euer Code ab hier  
+# Euer Code ab hier
+    Model = Network()
+    Model = Model.load_model("model")
     with open(model_name, 'rb') as f:  
         th_opt = np.load(f)         # Lade simples Model (1 Parameter)
 

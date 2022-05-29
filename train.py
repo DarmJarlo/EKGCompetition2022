@@ -21,6 +21,9 @@ detectors = Detectors(fs)                                 # Initialisierung des 
 sdnn_normal = np.array([])                                # Initialisierung der Feature-Arrays
 sdnn_afib = np.array([])
 for idx, ecg_lead in enumerate(ecg_leads):
+    input = ecg_lead.reshape((30,30,10))
+
+    '''
     r_peaks = detectors.hamilton_detector(ecg_lead)     # Detektion der QRS-Komplexe
     sdnn = np.std(np.diff(r_peaks)/fs*1000)             # Berechnung der Standardabweichung der Schlag-zu-Schlag Intervalle (SDNN) in Millisekunden
     if ecg_labels[idx]=='N':
@@ -88,3 +91,4 @@ axs[1].set_title("Vorhofflimmern")
 axs[1].set_xlabel("SDNN (ms)")
 axs[1].set_ylabel("Anzahl")
 plt.show()
+'''
