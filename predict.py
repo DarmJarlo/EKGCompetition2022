@@ -126,12 +126,12 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
     if is_binary_classifier:
         df_labels = df_labels.replace(to_replace=[0, 1], value=['N', 'A'])
     else:
-        df_labels = df_labels.replace(to_replace=[0, 1, 2, 3], value= ['N', 'A', 'O', '~'])
+        df_labels = df_labels.replace(to_replace=[0, 1, 2, 3], value=['N', 'A', 'O', '~'])
 
     predicted_classes = df_labels.to_numpy()
 
     for i in range(len(predicted_classes)):     # create prediction tuple
-        predictions.append((ecg_names[i], predicted_classes[i]))
+        predictions.append((ecg_names[i], predicted_classes[i][0]))
 
 
 #------------------------------------------------------------------------------    
