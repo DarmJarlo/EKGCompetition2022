@@ -129,7 +129,6 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
         df_labels = df_labels.replace(to_replace=[0, 1, 2, 3], value=['N', 'A', 'O', '~'])
 
     predicted_classes = df_labels.to_numpy()
-    #predicted_classes = df_labels.values.tolist()
 
     for i in range(len(predicted_classes)):     # create prediction tuple
         predictions.append((ecg_names[i], predicted_classes[i][0]))
