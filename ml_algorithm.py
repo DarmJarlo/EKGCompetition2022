@@ -10,6 +10,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from wettbewerb import load_references
+import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 
@@ -83,22 +85,33 @@ def features_of_both(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals
     return rf, X_test, y_test
 
 
-def feature_training(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=True):
-    features, targets = analysis.feature_extraction(ecg_leads, ecg_labels, fs, four_problem, nn_intervals)
-
-    X = features
-    y = targets
-
+def feature_training():
+    df = pd.read_csv('features_synth.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
     rf.fit(X_train, y_train)
     return rf, X_test, y_test
 
-
-trained_rf, X_test, y_test = feature_training(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False)
+trained_rf, X_test, y_test = feature_training()
 y_pred = trained_rf.predict(X_test)
 print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #,average=None))
+print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
 print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
 print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
+
+#sort = trained_rf.feature_importances_.argsort()
+#feature_names = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5', 'Feature 6', 'Feature 7', 'Feature 8',
+#                 'Feature 9', 'Feature 10', 'Feature 11', 'Feature 12', 'Feature 13', 'Feature 14', 'Feature 15',
+#                 'Feature 16', 'Feature 17', 'Feature 18', 'Feature 19', 'Feature 20', 'Feature 21', 'Feature 22',
+#                 'Feature 23', 'Feature 24', 'Feature 25', 'Feature 26', 'Feature 27', 'Feature 28', 'Feature 29',
+#                 'Feature 30', 'Feature 31', 'Feature 32']
+#feature_names = [x for _, x in sorted(zip(sort, feature_names))]
+#rf_features = trained_rf.feature_importances_[sort]
+#plt.figure(figsize=(8,6))
+#plt.barh(feature_names, rf_features)
+#plt.xlabel('Feature Importance')
+#plt.show()

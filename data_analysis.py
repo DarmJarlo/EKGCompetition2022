@@ -12,6 +12,9 @@ import hrvanalysis as hrv
 from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
 import random
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
@@ -542,7 +545,7 @@ Target classes values are between [0,3]
 """
 
 
-def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False, save=False):
     detectors = Detectors(fs)
 
     feature_vector = np.array([])
@@ -556,6 +559,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
             rr_intervals = np.append(rr_intervals, [arti_rr_1])
 
         rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
+        rr_intervals_ms = [abs(number) for number in rr_intervals_ms]
 
         if nn_intervals:
             rr_intervals_list = get_nn_intervals(rr_intervals=rr_intervals_ms,
@@ -572,7 +576,9 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
             mean_rr = np.nanmean(rr_intervals_list)
             rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
             arti_rr_1 = rr_intervals_list[0] * random.random()
+            arti_rr_2 = rr_intervals_list[0] * random.random()
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
+            rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
         rr_intervals_list = [abs(number) for number in rr_intervals_list]
 
@@ -681,6 +687,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
             if (idx % 100) == 0:
                 print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
+
     feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))
     feature_vector[:,24] = 0
 
@@ -695,13 +702,53 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     column_means = df.mean()
     df = df.fillna(column_means)
 
+
+    df = df.assign(Labels=targets)
+
+    if save:
+        df.to_csv('features.csv', encoding='utf-8', index=False)
+
+    "Normal: 3581, Other: 1713, Noise: 185, AFib: 521"
+
     feature_vector = df.to_numpy()
 
-    return feature_vector, targets.T
+    return feature_vector, df
 
 
-#features, targets = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False)
-#print(features)
+def synthesize_data_naive(df):
+    normal, afib, other, noise = df['Labels'].value_counts()
+    AFib = df[df['Labels'] == 1]
+    Noise = df[df['Labels'] == 3]
+
+    AFib_over = AFib.sample(other, replace=True)
+    Noise_over = Noise.sample(other, replace=True)
+
+    df_synth = pd.concat([df, AFib_over], axis=0)
+    df_synth = pd.concat([df_synth, Noise_over], axis=0)
+
+    features_synth = df_synth.to_numpy()
+    return features_synth
+
+
+def smote_algo(X, y):
+    y = LabelEncoder().fit_transform(y)
+    sm = SMOTE(random_state=42)
+    X_synth, y_synth = sm.fit_resample(X, y)
+    return X_synth, y_synth
+
+def create_dataset(X, y, save=False):
+    feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
+                    'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
+                     'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
+                     'csi', 'cvi', 'Modified_csi', 'sampen']
+    index = np.arange(len(X))
+    df = pd.DataFrame(data=X, index=index, columns=feature_names)
+    df = df.assign(Labels=y)
+
+    if save:
+        df.to_csv('features_synth.csv', encoding='utf-8', index=False)
+    return df
+
 
 def histoplot(heart_rate, bins):
     plt.hist(heart_rate, bins, range=[min(heart_rate),max(heart_rate)])
@@ -729,3 +776,14 @@ def hr_analysis(dictionary_list, bins=50, is_fourproblem=False):
                 dict_temp = dictionary_list[i]
                 heart_rate.append(dict_temp['mean_hr'])
             histoplot(heart_rate, bins)
+
+#features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
+df = pd.read_csv('features.csv')
+df = df.to_numpy()
+X = df[:,:-1]
+y = df[:,-1]
+X_synth, y_synth = smote_algo(X, y)
+print('Resampled Dataset shape %s' % Counter(y_synth))
+
+df = create_dataset(X_synth, y_synth, save=True)
+print('done')
