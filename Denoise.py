@@ -9,7 +9,7 @@ def wavelet(data):
     data_denoise = []
     for i in range(len(data)):
 
-        w = pywt.Wavelet(‘db8’)  # 选用Daubechies8小波
+        w = pywt.Wavelet('db8')  # 选用Daubechies8小波
         maxlev = pywt.dwt_max_level(len(data[i]), w.dec_len)
         print("maximum level is " + str(maxlev))
         threshold = 0.04  # Threshold for filtering
@@ -30,12 +30,12 @@ def compare_plot(data,datarec):
     maxtime = mintime + len(data) + 1
     plt.figure()
     plt.subplot(2, 1, 1)
-    plt.plot(data[mintime:maxtime])
+    plt.plot(data[300:800])
     #plt.xlabel(‘time(s)’)
 
     plt.title("Raw signal")
     plt.subplot(2, 1, 2)
-    plt.plot(datarec[mintime:maxtime - 1])
+    plt.plot(datarec[300:800])
    # plt.xlabel(‘time(s)’)
 
     plt.title("wavelet")
@@ -43,4 +43,3 @@ def compare_plot(data,datarec):
     plt.tight_layout()
     plt.show()
 
-def
