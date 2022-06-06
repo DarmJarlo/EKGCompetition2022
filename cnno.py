@@ -1,6 +1,9 @@
-import numpy
+
 from wettbewerb import load_references
-import pandas
+import matplotlib.pyplot as plt
+import pywt
+import numpy
+
 import math
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout, Conv1D, Conv2D, MaxPooling2D, Flatten
@@ -14,10 +17,7 @@ from os.path import isfile, join
 import numpy as np
 import keras
 from sklearn.metrics import accuracy_score
-from keras import backend as K
-import sys
-#adapted from https://github.com/ismorphism/DeepECG/blob/master/CNN_ECG.py
-#K.image_data_format('tf')  # For problems with ordering
+from keras import backend as K())
 
 
 
