@@ -1,1 +1,4 @@
 /ResNet/saved_model/*
+/ResNet/saved_model/Keras_models/*
+/test/*
+/train/*

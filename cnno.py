@@ -36,18 +36,29 @@ ecg_leads,ecg_labels,fs,ecg_names = load_references()
 ecg_labels_std =[]
 ecg_leads_std=[]
 for index in range(len(ecg_labels)):
-    if len(ecg_leads[index]) == 9000 :
 
+
+
+
+    if len(ecg_leads[index]) == 9000 :
+        if ecg_labels[index] == 'N':
+            ecg_labels_std.append(0)
+        elif ecg_labels[index]=='A':
+            ecg_labels_std.append(1)
+        elif ecg_labels[index]=='O':
+            ecg_labels_std.append(2)
+        elif ecg_labels[index]== '~':
+            ecg_labels_std.append(3)
         if ecg_labels[index] == 'N' or ecg_labels[index] == 'A':
             ecg_leads_std.append(ecg_leads[index])
             if ecg_labels[index] == 'N':
                 ecg_labels_std.append(0)
             else:
                 ecg_labels_std.append(1)
-Label_set = np.zeros((len(ecg_labels_std), 2))
+Label_set = np.zeros((len(ecg_labels_std), 4))
 ecg_leads_std = np.array(ecg_leads_std)
 for i in range(len(ecg_labels_std)):
-    dummy = np.zeros(2)
+    dummy = np.zeros(4)
     dummy[int(ecg_labels_std[i])] = 1
     Label_set[i, :] = dummy
 

@@ -7,7 +7,61 @@ from scipy import signal
 import os
 ##https://blog.csdn.net/qq_36495569/article/details/104086636
 #https://blog.csdn.net/qq_39594939/article/details/115697198
-def wavelet(data):
+
+def relength(ecg_leads,ecg_labels):
+    ecg_labels_std = []
+    ecg_leads_extra = []
+    ecg_labels_extra = []
+    for index in range(len(ecg_labels)):
+        if ecg_labels[index] == 'N':
+            ecg_labels_std.append(0)
+        elif ecg_labels[index] == 'A':
+            ecg_labels_std.append(1)
+        elif ecg_labels[index] == 'O':
+            ecg_labels_std.append(2)
+        elif ecg_labels[index] == '~':
+            ecg_labels_std.append(3)
+
+        if len(ecg_leads[index]) < 9000:
+            lowiter = 9000 // len(ecg_leads[index])
+            print(lowiter)
+            for i in range(lowiter):
+                print(ecg_leads[index].shape)
+                ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
+                print('dadadad', ecg_leads[index].shape)
+            ecg_leads[index] = ecg_leads[index][0:9000]
+            print(len(ecg_leads[index]))
+        elif len(ecg_leads[index] > 9000):
+            if len(ecg_leads[index] <= 18000):
+                ecg_leads[index] = ecg_leads[index][0:9000]
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                ecg_labels_extra.append(ecg_labels_std[index])
+            elif len(ecg_leads[index] > 18000):
+                iter = len(ecg_leads[index]) // 9000
+                ecg_leads[index] = ecg_leads[index][:9000]
+                for i in range(1, iter):
+                    start = 9000 * i
+                    end = 9000 * (i + 1)
+                    ecg_leads_extra.append(ecg_leads[start:end])
+                    ecg_labels_extra.append(ecg_labels_std[index])
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                ecg_labels_extra.append(ecg_labels_std[index])
+
+    ecg_labels_std = ecg_labels_std + ecg_labels_extra
+    ecg_leads_std = ecg_leads + ecg_leads_extra
+
+    print(ecg_labels_extra)
+    # form the label as one-hot
+
+    Label_set = np.zeros((len(ecg_labels_std), 4))
+
+    for i in range(len(ecg_labels_std)):
+        print('111111', i, ecg_labels_std[i])
+        dummy = np.zeros(4)
+        dummy[int(ecg_labels_std[i])] = 1
+        Label_set[i, :] = dummy
+    return ecg_leads_std,Label_set[i,:]
+def wavelet(data,label):
 
     data_denoise = []
     for i in range(len(data)):
