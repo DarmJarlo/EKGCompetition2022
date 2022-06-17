@@ -3,7 +3,7 @@ Implementing a machine learning algorithm with extracted features of data_analys
 """
 
 import numpy as np
-import data_analysis as analysis
+#import data_analysis as analysis
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -12,6 +12,8 @@ from sklearn import metrics
 from wettbewerb import load_references
 import pandas as pd
 from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.model_selection import GridSearchCV
+import xgboost
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 
@@ -86,22 +88,57 @@ def features_of_both(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals
 
 
 def feature_training():
-    df = pd.read_csv('features_synth.csv')
+    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    #df = pd.read_csv('features_synth.csv')
     df = df.to_numpy()
     X = df[:, :-1]
     y = df[:, -1]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
+    rf = RandomForestClassifier(n_estimators=1500, bootstrap=False, max_features=10, n_jobs=-1)
     rf.fit(X_train, y_train)
     return rf, X_test, y_test
 
-trained_rf, X_test, y_test = feature_training()
+
+def tuning():
+    forest = RandomForestClassifier(n_jobs=-1)
+    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    #forest.fit(X_train, y_train)
+    param_grid = [
+        {'n_estimators': [1000, 1500], 'max_features': [8, 10, 12], 'bootstrap': [True, False]}
+    ]
+    grid_search_forest = GridSearchCV(forest, param_grid, cv=10, scoring='f1_macro')
+    grid_search_forest.fit(X_train, y_train)
+    print(grid_search_forest.best_estimator_)
+
+
+def xgb():
+    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = xgboost.XGBClassifier()
+    model.fit(X_train, y_train)
+
+    return model, X_test, y_test
+
+#tuning()
+trained_rf, X_test, y_test = feature_training() # Random Forest
 y_pred = trained_rf.predict(X_test)
+
+#trained_xgb, X_test, y_test = xgb()  # XGBoosting
+#y_pred = trained_xgb.predict(X_test)
+
 print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
-print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
-print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
+print('Precision:', metrics.precision_score(y_test, y_pred, average='macro')) #)) #, average=None))
+print('Recall:', metrics.recall_score(y_test, y_pred, average='macro')) #)) #, average=None))
+print('F1:', metrics.f1_score(y_test, y_pred, average='macro')) #)) #, average=None))
 
 #sort = trained_rf.feature_importances_.argsort()
 #feature_names = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5', 'Feature 6', 'Feature 7', 'Feature 8',

@@ -3,7 +3,9 @@ Datei ist für Analyse der Daten gedacht. Welche Sachen sind auffällig, wie kö
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+
+
+import Denoise
 from wettbewerb import load_references
 from collections import Counter
 from scipy.signal import medfilt
@@ -15,6 +17,11 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
+import tsfel
+from sklearn.feature_selection import VarianceThreshold
+from sklearn import preprocessing
+
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
@@ -119,133 +126,100 @@ greater than 20 ms) by the total number of RR-intervals.
 """
 
 
-def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False, each_by_one=False):
+def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
     detectors = Detectors(fs)
 
-    if each_by_one:
-        if four_problem:
-            feature_vector_time_domain_N = np.array([])
-            feature_vector_time_domain_A = np.array([])
-            feature_vector_time_domain_O = np.array([])
-            feature_vector_time_domain_Noise = np.array([])
-        else:
-            feature_vector_time_domain_N = np.array([])
-            feature_vector_time_domain_A = np.array([])
-    else:
-        feature_vector_time_domain = np.array([])
+    feature_vector = np.array([])
+    targets = np.array([])
 
-    for idx, ecg_lead in enumerate(ecg_leads):
+    ecg_filtered = Denoise.wavelet(ecg_leads)
+
+    for idx, ecg_lead in enumerate(ecg_filtered):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
         if len(rr_intervals) == 1:
-            # continue
             rr_intervals = np.abs(rr_intervals)
             arti_rr_1 = rr_intervals * random.random()
-            arti_rr_2 = rr_intervals * random.random()
             rr_intervals = np.append(rr_intervals, [arti_rr_1])
-            rr_intervals = np.append(rr_intervals, [arti_rr_2])
-        rr_intervals_ms = np.diff(rr_intervals)/fs*1000 # Umwandlung in ms
+
+        rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
+        rr_intervals_ms = [abs(number) for number in rr_intervals_ms]
 
         if nn_intervals:
             rr_intervals_list = get_nn_intervals(rr_intervals=rr_intervals_ms,
-                                                interpolation_method='linear',
-                                                ectopic_beats_removal_method='malik',
-                                                low_rri=300, high_rri=2000)
+                                                 interpolation_method='linear',
+                                                 ectopic_beats_removal_method='malik',
+                                                 low_rri=300, high_rri=2000)
         else:
             rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)
             rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
-        #rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
+        rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
 
         if len(rr_intervals_list) <= 2:
-            mean_rr = np.nanmean(rr_intervals_list, axis=0)
+            mean_rr = np.nanmean(rr_intervals_list)
             rr_intervals_list = np.nan_to_num(rr_intervals, nan=mean_rr)
+            arti_rr_1 = rr_intervals_list[0] * random.random()
+            arti_rr_2 = rr_intervals_list[0] * random.random()
+            rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
+            rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
+
+        rr_intervals_list = [abs(number) for number in rr_intervals_list]
 
         dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)
 
-        if each_by_one:
-            if four_problem:
-                if ecg_labels[idx] == 'N':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
-                if ecg_labels[idx] == 'A':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_A = np.append(feature_vector_time_domain_A, values)
-                if ecg_labels[idx] == 'O':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_O = np.append(feature_vector_time_domain_O, values)
-                if ecg_labels[idx] == '~':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_Noise = np.append(feature_vector_time_domain_Noise, values)
-                if (idx % 100) == 0:
-                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-
-            else:
-                if ecg_labels[idx] == 'N':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_N = np.append(feature_vector_time_domain_N, values)
-                    #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-                elif ecg_labels[idx] == 'A':
-                    values = list(dict_time_domain.values())
-                    feature_vector_time_domain_A = np.append(feature_vector_time_domain_A, values)
-                    #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-                if (idx % 100) == 0:
-                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-        else:
-            if four_problem:
-                if ecg_labels[idx] == 'N':
-                    values = list(dict_time_domain.values())
-                    values.append(0)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                if ecg_labels[idx] == 'A':
-                    values = list(dict_time_domain.values())
-                    values.append(1)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                if ecg_labels[idx] == 'O':
-                    values = list(dict_time_domain.values())
-                    values.append(2)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                if ecg_labels[idx] == '~':
-                    values = list(dict_time_domain.values())
-                    values.append(3)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                if (idx % 100) == 0:
-                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-
-            else:
-                if ecg_labels[idx] == 'N':
-                    values = list(dict_time_domain.values())
-                    values.append(0)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                    #print(idx)    #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-                elif ecg_labels[idx] == 'A':
-                    values = list(dict_time_domain.values())
-                    values.append(1)
-                    feature_vector_time_domain = np.append(feature_vector_time_domain, values)
-                    #print(idx)     #zum debuggen, mit welchem Sample die Methode nicht zurechtkommt
-                if (idx % 100) == 0:
-                    print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-
-    if each_by_one:
         if four_problem:
-            feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
-                                                    (int(len(feature_vector_time_domain_N) / 16), 16))
-            feature_vector_time_domain_A = np.reshape(feature_vector_time_domain_A,
-                                                    (int(len(feature_vector_time_domain_A) / 16), 16))
-            feature_vector_time_domain_O = np.reshape(feature_vector_time_domain_O,
-                                                    (int(len(feature_vector_time_domain_O) / 16), 16))
-            feature_vector_time_domain_Noise = np.reshape(feature_vector_time_domain_Noise,
-                                                      (int(len(feature_vector_time_domain_Noise) / 16), 16))
-            return feature_vector_time_domain_N, feature_vector_time_domain_A, feature_vector_time_domain_O, \
-                   feature_vector_time_domain_Noise
+            if ecg_labels[idx] == 'N':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 0)
+                feature_vector = np.append(feature_vector, values_time)
+            if ecg_labels[idx] == 'A':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 1)
+                feature_vector = np.append(feature_vector, values_time)
+            if ecg_labels[idx] == 'O':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 2)
+                feature_vector = np.append(feature_vector, values_time)
+            if ecg_labels[idx] == '~':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 3)
+                feature_vector = np.append(feature_vector, values_time)
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
         else:
-            feature_vector_time_domain_N = np.reshape(feature_vector_time_domain_N,
-                                                    (int(len(feature_vector_time_domain_N) / 16), 16))
-            feature_vector_time_domain_A = np.reshape(feature_vector_time_domain_A,
-                                                      (int(len(feature_vector_time_domain_A) / 16), 16))
-            return feature_vector_time_domain_N, feature_vector_time_domain_A
-    else:
-         feature_vector_time_domain = np.reshape(feature_vector_time_domain, (int(len(feature_vector_time_domain) / 17), 17))
-         return feature_vector_time_domain
+            if ecg_labels[idx] == 'N':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 0)
+                feature_vector = np.append(feature_vector, values_time)
+            if ecg_labels[idx] == 'A':
+                values_time = list(dict_time_domain.values())
+                targets = np.append(targets, 1)
+
+                feature_vector = np.append(feature_vector, values_time)
+            if (idx % 100) == 0:
+                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+        #idx += 1
+
+    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 16), 16))
+
+    feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
+                     'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr']
+    index = np.arange(len(feature_vector))
+    df = pd.DataFrame(data=feature_vector, index=index, columns=feature_names)
+
+    df = df.replace([np.inf, -np.inf], np.nan)
+    column_means = df.mean()
+    df = df.fillna(column_means)
+
+    df = df.assign(Labels=targets)
+
+    "Normal: 3581, Other: 1713, Noise: 185, AFib: 521"
+
+    feature_vector = df.to_numpy()
+
+    return feature_vector, df
 
 
 """
@@ -550,9 +524,19 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
 
     feature_vector = np.array([])
     targets = np.array([])
+    cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
+
+    ecg_leads = Denoise.wavelet(ecg_leads)
 
     for idx, ecg_lead in enumerate(ecg_leads):
-        rr_intervals = detectors.hamilton_detector(ecg_lead)
+        spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
+        corr_features = tsfel.correlated_features(spectral_features)
+        spectral_features.drop(corr_features, axis=1, inplace=True)
+        spectral_features = spectral_features.to_numpy()
+
+        #rr_intervals = detectors.hamilton_detector(ecg_lead)
+        rr_intervals = detectors.two_average_detector(ecg_lead)
+
         if len(rr_intervals) == 1:
             rr_intervals = np.abs(rr_intervals)
             arti_rr_1 = rr_intervals * random.random()
@@ -605,6 +589,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_pointcare)
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
+                feature_vector = np.append(feature_vector, spectral_features)
             if ecg_labels[idx] == 'A':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
@@ -620,6 +605,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_pointcare)
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
+                feature_vector = np.append(feature_vector, spectral_features)
             if ecg_labels[idx] == 'O':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
@@ -635,6 +621,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_pointcare)
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
+                feature_vector = np.append(feature_vector, spectral_features)
             if ecg_labels[idx] == '~':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
@@ -650,6 +637,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_pointcare)
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
+                feature_vector = np.append(feature_vector, spectral_features)
             if (idx % 100) == 0:
                print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
@@ -688,15 +676,23 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
 
-    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))
-    feature_vector[:,24] = 0
+    #feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))
+    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 57), 57))
+    #feature_vector[:,24] = 0
 
     feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
                     'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
                      'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
-                     'csi', 'cvi', 'Modified_csi', 'sampen']
+                     'csi', 'cvi', 'Modified_csi', 'sampen', 'Fundamental freq', 'Human energy range',
+                     'Max power spectrum', 'Max Frequency', 'Median Frequency', 'Power bandwith',
+                     'Spectral centroid', 'Spectral decrease', 'Spectral entropy', 'Spectral kurtosis',
+                     'Spectral positive turning points', 'Spectral roll-off', 'Spectral roll-on', 'Spectral skewness',
+                     'Spectral spread', 'Spectral variation', 'Wavelet abs mean 1', 'Wavelet abs mean 2',
+                     'Wavelet abs mean 3', 'Wavelet abs mean 4', 'Wavelet abs mean 5', 'Wavelet abs mean 6',
+                     'Wavelet abs mean 7', 'Wavelet abs mean 8', 'Wavelet abs mean 9']
     index = np.arange(len(feature_vector))
     df = pd.DataFrame(data=feature_vector, index=index, columns=feature_names)
+    df = df.drop(columns=['tinn'])
 
     df = df.replace([np.inf, -np.inf], np.nan)
     column_means = df.mean()
@@ -706,7 +702,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     df = df.assign(Labels=targets)
 
     if save:
-        df.to_csv('features.csv', encoding='utf-8', index=False)
+        df.to_csv('../datasets/two_average_filtered_extended.csv', encoding='utf-8', index=False)
 
     "Normal: 3581, Other: 1713, Noise: 185, AFib: 521"
 
@@ -714,7 +710,9 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
 
     return feature_vector, df
 
-
+"""
+Random Oversampling method
+"""
 def synthesize_data_naive(df):
     normal, afib, other, noise = df['Labels'].value_counts()
     AFib = df[df['Labels'] == 1]
@@ -729,24 +727,35 @@ def synthesize_data_naive(df):
     features_synth = df_synth.to_numpy()
     return features_synth
 
-
+"SMOTE Algorithm to handle class imbalanace"
 def smote_algo(X, y):
     y = LabelEncoder().fit_transform(y)
     sm = SMOTE(random_state=42)
     X_synth, y_synth = sm.fit_resample(X, y)
     return X_synth, y_synth
 
+"Creates a pandas dataframe"
 def create_dataset(X, y, save=False):
+    #feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
+    #                'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
+    #                 'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
+    #                 'csi', 'cvi', 'Modified_csi', 'sampen']
     feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
                     'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
-                     'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
-                     'csi', 'cvi', 'Modified_csi', 'sampen']
+                     'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'sd1', 'sd2', 'ratio_sd2_sd1',
+                     'csi', 'cvi', 'Modified_csi', 'sampen', 'Fundamental freq', 'Human energy range',
+                     'Max power spectrum', 'Max Frequency', 'Median Frequency', 'Power bandwith',
+                     'Spectral centroid', 'Spectral decrease', 'Spectral entropy', 'Spectral kurtosis',
+                     'Spectral positive turning points', 'Spectral roll-off', 'Spectral roll-on', 'Spectral skewness',
+                     'Spectral spread', 'Spectral variation', 'Wavelet abs mean 1', 'Wavelet abs mean 2',
+                     'Wavelet abs mean 3', 'Wavelet abs mean 4', 'Wavelet abs mean 5', 'Wavelet abs mean 6',
+                     'Wavelet abs mean 7', 'Wavelet abs mean 8', 'Wavelet abs mean 9']
     index = np.arange(len(X))
     df = pd.DataFrame(data=X, index=index, columns=feature_names)
     df = df.assign(Labels=y)
 
     if save:
-        df.to_csv('features_synth.csv', encoding='utf-8', index=False)
+        df.to_csv('../datasets/two_average_filtered_synth_extended.csv', encoding='utf-8', index=False)
     return df
 
 
@@ -777,8 +786,48 @@ def hr_analysis(dictionary_list, bins=50, is_fourproblem=False):
                 heart_rate.append(dict_temp['mean_hr'])
             histoplot(heart_rate, bins)
 
-#features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
-df = pd.read_csv('features.csv')
+"Extract spectral features of ecg signal"
+def tsfel_features(ecg_leads):
+    cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
+
+    features = np.array([])
+    #features = []
+    for idx, ecg_lead in enumerate(ecg_leads):
+    #for lead in range(len(ecg_leads)):
+        #ecg_lead = ecg_leads[lead]
+        X = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=300)
+        corr_features = tsfel.correlated_features(X)
+        X.drop(corr_features, axis=1, inplace=True)
+        X = X.to_numpy()
+        features = np.append(features, X)
+        #features.append(X)
+        if (idx % 100) == 0:
+            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    features = np.reshape(features, (int(len(features) / 25), 25))
+    return features
+
+#leads = []
+#for idx, lead in enumerate(ecg_leads):
+#    leads.append(lead)
+
+#ecg_leads = leads[:100]
+#features = tsfel_features(ecg_leads)
+#print(features[0].head())
+#spectral_features = ['Fundamental freq', 'Human energy range', 'Max power spectrum', 'Max Frequency',
+#                     'Median Frequency', 'Power bandwith', 'Spectral centroid', 'Spectral decrease',
+#                     'Spectral entropy', 'Spectral kurtosis', 'Spectral positive turning points',
+#                     'Spectral roll-off', 'Spectral roll-on', 'Spectral skewness',  'Spectral spread',
+#                     'Spectral variation', 'Wavelet abs mean 1', 'Wavelet abs mean 2','Wavelet abs mean 3',
+#                     'Wavelet abs mean 4', 'Wavelet abs mean 5', 'Wavelet abs mean 6', 'Wavelet abs mean 7',
+#                     'Wavelet abs mean 8' , 'Wavelet abs mean 9']
+#idx = np.arange(len(features))
+#df = pd.DataFrame(data=features, index=idx, columns=spectral_features)
+#df.head()
+
+features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
+print(df.head())
+#df = pd.read_csv('features_filtered_extended.csv')
 df = df.to_numpy()
 X = df[:,:-1]
 y = df[:,-1]
@@ -787,3 +836,4 @@ print('Resampled Dataset shape %s' % Counter(y_synth))
 
 df = create_dataset(X_synth, y_synth, save=True)
 print('done')
+
