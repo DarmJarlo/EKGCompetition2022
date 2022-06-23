@@ -526,7 +526,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     targets = np.array([])
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 
-    ecg_leads = Denoise.wavelet(ecg_leads)
+    #ecg_leads = Denoise.wavelet(ecg_leads)
 
     for idx, ecg_lead in enumerate(ecg_leads):
         spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
@@ -681,7 +681,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     #feature_vector[:,24] = 0
 
     feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
-                    'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
+                     'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
                      'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
                      'csi', 'cvi', 'Modified_csi', 'sampen', 'Fundamental freq', 'Human energy range',
                      'Max power spectrum', 'Max Frequency', 'Median Frequency', 'Power bandwith',
@@ -727,12 +727,14 @@ def synthesize_data_naive(df):
     features_synth = df_synth.to_numpy()
     return features_synth
 
+
 "SMOTE Algorithm to handle class imbalanace"
 def smote_algo(X, y):
     y = LabelEncoder().fit_transform(y)
     sm = SMOTE(random_state=42)
     X_synth, y_synth = sm.fit_resample(X, y)
     return X_synth, y_synth
+
 
 "Creates a pandas dataframe"
 def create_dataset(X, y, save=False):
@@ -791,7 +793,6 @@ def tsfel_features(ecg_leads):
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 
     features = np.array([])
-    #features = []
     for idx, ecg_lead in enumerate(ecg_leads):
     #for lead in range(len(ecg_leads)):
         #ecg_lead = ecg_leads[lead]
@@ -807,11 +808,73 @@ def tsfel_features(ecg_leads):
     features = np.reshape(features, (int(len(features) / 25), 25))
     return features
 
-#leads = []
-#for idx, lead in enumerate(ecg_leads):
-#    leads.append(lead)
 
-#ecg_leads = leads[:100]
+def uniform_length(ecg_leads, ecg_labels):
+    ecg_labels_std = []
+    ecg_leads_std = []
+    ecg_leads_extra = []
+    ecg_labels_extra = []
+
+    for index in range(len(ecg_labels)):
+        if ecg_labels[index] == 'N':
+            ecg_labels_std.append(0)
+        elif ecg_labels[index] == 'A':
+            ecg_labels_std.append(1)
+        elif ecg_labels[index] == 'O':
+            ecg_labels_std.append(2)
+        elif ecg_labels[index] == '~':
+            ecg_labels_std.append(3)
+
+        if len(ecg_leads[index]) < 9000:
+            lowiter= 9000//len(ecg_leads[index])
+            print(lowiter)
+            for i in range(lowiter):
+                print(ecg_leads[index].shape)
+                ecg_leads[index]=np.append(ecg_leads[index],ecg_leads[index])
+                print('dadadad',ecg_leads[index].shape)
+            ecg_leads[index]=ecg_leads[index][0:9000]
+            print(len(ecg_leads[index]))
+        elif len(ecg_leads[index]>9000):
+            if len(ecg_leads[index]<=18000):
+                ecg_leads[index]=ecg_leads[index][0:9000]
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                ecg_labels_extra.append(ecg_labels_std[index])
+            elif len(ecg_leads[index]>18000):
+                iter = len(ecg_leads[index])//9000
+                ecg_leads[index]=ecg_leads[index][:9000]
+                for i in range(1,iter):
+                    start = 9000*i
+                    end = 9000*(i+1)
+                    ecg_leads_extra.append(ecg_leads[start:end])
+                    ecg_labels_extra.append(ecg_labels_std[index])
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                ecg_labels_extra.append(ecg_labels_std[index])
+
+    ecg_labels_std = ecg_labels_std + ecg_labels_extra
+    ecg_leads_std = ecg_leads + ecg_leads_extra
+
+    col = np.arange(9000)
+
+    lst =[]
+    for idx, ecg_lead in enumerate(ecg_leads_std):
+        lst.append(ecg_lead)
+        if (idx % 100) == 0:
+            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+
+    df = pd.DataFrame(lst, columns=col)
+    df = df.assign(Labels=ecg_labels_std)
+
+    df = df.to_numpy()
+    return df
+
+#df = uniform_length(ecg_leads, ecg_labels)
+
+#X = df[:,:-1]
+#y = df[:,-1]
+#X_synth, y_synth = smote_algo(X, y)
+#print('Resampled Dataset shape %s' % Counter(y_synth))
+
+
 #features = tsfel_features(ecg_leads)
 #print(features[0].head())
 #spectral_features = ['Fundamental freq', 'Human energy range', 'Max power spectrum', 'Max Frequency',
@@ -826,14 +889,16 @@ def tsfel_features(ecg_leads):
 #df.head()
 
 features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
-print(df.head())
+#print(df.head())
 #df = pd.read_csv('features_filtered_extended.csv')
-df = df.to_numpy()
-X = df[:,:-1]
-y = df[:,-1]
+#df = df.to_numpy()
+
+
+X = features[:,:-1]
+y = features[:,-1]
 X_synth, y_synth = smote_algo(X, y)
 print('Resampled Dataset shape %s' % Counter(y_synth))
 
-df = create_dataset(X_synth, y_synth, save=True)
+df = create_dataset(X_synth, y_synth, save=False)
 print('done')
 
