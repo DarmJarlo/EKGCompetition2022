@@ -199,8 +199,4 @@ def smote_algo(X, y):
     X_synth, y_synth = sm.fit_resample(X, y)
     return X_synth, y_synth
 
-df = uniform_length(ecg_leads, ecg_labels)
 
-X = df[:,:-1]
-y = df[:,-1]
-X_synth, y_synth = smote_algo(X, y)

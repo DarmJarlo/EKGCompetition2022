@@ -13,7 +13,7 @@ from wettbewerb import load_references
 import pandas as pd
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import GridSearchCV
-import xgboost
+from xgboost import XGBClassifier
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 
@@ -116,6 +116,27 @@ def tuning():
     print(grid_search_forest.best_estimator_)
 
 
+def algorithm_pipeline(X_train_data, X_test_data, y_train_data, y_test_data,
+                       model, param_grid, cv=10, scoring_fit='f1_macro',
+                       do_probabilities=False):
+    gs = GridSearchCV(
+        estimator=model,
+        param_grid=param_grid,
+        cv=cv,
+        n_jobs=-1,
+        scoring=scoring_fit,
+        verbose=2
+    )
+    fitted_model = gs.fit(X_train_data, y_train_data)
+
+    if do_probabilities:
+        pred = fitted_model.predict_proba(X_test_data)
+    else:
+        pred = fitted_model.predict(X_test_data)
+
+    return fitted_model, pred
+
+
 def xgb():
     df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
     df = df.to_numpy()
@@ -123,17 +144,73 @@ def xgb():
     y = df[:, -1]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    model = xgboost.XGBClassifier()
+    param_test1 = {
+        'max_depth': range(3, 10, 2),
+        'min_child_weight': range(1, 6, 2)
+    }
+    # results: 0.9066260995777382
+    # {'max_depth': 7, 'min_child_weight': 1}
+
+    param_test2 = {
+        'max_depth': [6,7,8],
+        'min_child_weight': [0,1,2]
+    }
+    # results: 0.9070665614482687
+    # {'max_depth': 6, 'min_child_weight': 0}
+
+    param_test3 = {
+        'gamma': [i / 10.0 for i in range(0, 5)]
+    }
+    # results: 0.9070665614482687
+    # {'gamma': 0.0}
+
+    param_test4 = {
+        'subsample': [i / 10.0 for i in range(6, 10)],
+        'colsample_bytree': [i / 10.0 for i in range(6, 10)]
+    }
+    # results: 0.9098046267165903
+    # {'colsample_bytree': 0.6, 'subsample': 0.7}
+
+    # TO DO
+    param_test5 = {
+        'subsample': [i / 100.0 for i in range(55, 70, 5)],
+        'colsample_bytree': [i / 100.0 for i in range(65, 80, 5)]
+    }
+    # results: 0.9100325601020567
+    # {'colsample_bytree': 0.75, 'subsample': 0.55}
+
+    param_test6 = {
+        'reg_alpha': [1e-5, 1e-2, 0.1, 1, 100]
+    }
+    # results: 0.9098502004296225
+    # {'reg_alpha': 1e-05}
+
+
+
+
+    #gsearch1 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6,
+                                                    #min_child_weight=0, gamma=0, subsample=0.55, colsample_bytree=0.75,
+                                                    #objective='multi:softmax', nthread=4, scale_pos_weight=1,
+                                                    #seed=42),
+                            #param_grid=param_test6, scoring='f1_macro', n_jobs=4, cv=5)
+    #gsearch1.fit(X_train, y_train)
+    #print(gsearch1.best_score_)
+    #print(gsearch1.best_params_)
+    model = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0,
+                          subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
+                          nthread=4, scale_pos_weight=1, seed=42)
     model.fit(X_train, y_train)
+
 
     return model, X_test, y_test
 
-#tuning()
-trained_rf, X_test, y_test = feature_training() # Random Forest
-y_pred = trained_rf.predict(X_test)
 
-#trained_xgb, X_test, y_test = xgb()  # XGBoosting
-#y_pred = trained_xgb.predict(X_test)
+#tuning()
+#trained_rf, X_test, y_test = feature_training() # Random Forest
+#y_pred = trained_rf.predict(X_test)
+
+trained_xgb, X_test, y_test = xgb()  # XGBoosting
+y_pred = trained_xgb.predict(X_test)
 
 print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
 print('Precision:', metrics.precision_score(y_test, y_pred, average='macro')) #)) #, average=None))
