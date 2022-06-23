@@ -95,7 +95,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
     spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
     corr_features = tsfel.correlated_features(spectral_features)
     spectral_features.drop(corr_features, axis=1, inplace=True)
-    spectral_features = spectral_features.to_numpy()
+    spectral_features = spectral_features.to_numpy()    # extracting spectral features
 
     rr_intervals = detectors.two_average_detector(ecg_lead)
 
@@ -224,14 +224,13 @@ X = df[:, :-1]
 y = df[:, -1]
 
 y = LabelEncoder().fit_transform(y)
-sm = SMOTE(random_state=42)     # handle class_imbalance using oversampling via SMOTE
+sm = SMOTE(random_state=42)     # handle class_imbalance: using oversampling via SMOTE
 X, y = sm.fit_resample(X, y)
 
 xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0,
                           subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
                           nthread=4, scale_pos_weight=1, seed=42)
 xgb.fit(X, y)                # fit XGBoost Classifier
-
 
 
 if os.path.exists("model_4p_2.npy"):

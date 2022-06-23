@@ -48,7 +48,7 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
 #------------------------------------------------------------------------------
 # Euer Code ab hier  
     with open(model_name, 'rb') as f:  
-        xgb = pickle.load(f)         # load random forest
+        xgb = pickle.load(f)         # load boosting classifier
 
     detectors = Detectors(fs)
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')

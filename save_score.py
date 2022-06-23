@@ -14,9 +14,9 @@ import os, csv
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser(description='Score based on Predictions')
-    parser.add_argument('output_dir', action='store',type=str)
-    parser.add_argument('data_set', action='store',type=str)
-    parser.add_argument('--test_dir', action='store',type=str,default='../test/')
+    #parser.add_argument('output_dir', action='store',type=str)
+    #parser.add_argument('data_set', action='store',type=str)
+    parser.add_argument('--test_dir', action='store',type=str,default='../test_examples/')
 
     args = parser.parse_args()
     
