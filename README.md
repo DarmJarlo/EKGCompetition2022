@@ -1,8 +1,10 @@
 # Team 404 Name not found
 Teammitglieder: Ellen, Jia und Noah
 
-## Model 1: Random Forest Classifier
-Kann als binary oder four_classes classifier trainiert und genutzt werden. Dafür in train.py "is_binary_classifier=False" setzen.
+## Model 2: XGBoost Classifier
+Model wird als four_classes classifier trainiert. Wichtig fürs Training ist die features.json Datei, da sie im gleichen 
+Ordner liegen muss, wie die train.py und predict.py - wird für die Feature Extraction über die tsfel-library benötigt. 
+
 
 
 ## Wichtig!
