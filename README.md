@@ -6,7 +6,6 @@ Model wird als four_classes classifier trainiert. Wichtig fürs Training ist die
 Ordner liegen muss, wie die train.py und predict.py - wird für die Feature Extraction über die tsfel-library benötigt. 
 
 
-
 ## Wichtig!
 
 Bitte achtet bei der Abgabe darauf, dass alle von uns gestellten Dateien auf dem Top-Level des Repositories liegen. Testet die Funktionsfähigkeit eures Codes mit dem Skript predict_pretrained.py. 
