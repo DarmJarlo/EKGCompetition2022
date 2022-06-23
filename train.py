@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Model 1: Random Forest Classifier
+Model 2: XGBoost Classifier
 
 Using the hrvanalysis library given by: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#
 + tsfel library given by: https://github.com/fraunhoferportugal/tsfel and
