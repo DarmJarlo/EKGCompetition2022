@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Model 1: Random Forest Classifier
+Model 2: XGBoost Classifier
 
 Using the hrvanalysis library given by: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#
++ tsfel library given by: https://github.com/fraunhoferportugal/tsfel and
+https://tsfel.readthedocs.io/en/latest/descriptions/feature_list.html
+
 Features were extracted via the different methods:
 (descriptions were copied from:
 https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features)
@@ -58,9 +61,10 @@ https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalys
     Modified_csi : Modified CSI is an alternative measure in research of seizure detection.
 - sample entropy of the data
 
-can be trained as binary or four_classes classifier -> change is_binary_classifier to False if train for four_classes
+- spectral domain with provided features.json (needed for tsfel library)
 
-model will be saved as 'model.npy'
+
+model will be saved as 'model_4p_2.npy'
 """
 
 import numpy as np
@@ -71,29 +75,36 @@ import hrvanalysis as hrv
 from hrvanalysis.preprocessing import remove_outliers, interpolate_nan_values
 import random
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+import tsfel
 import pickle
+from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
 
 ### if __name__ == '__main__':  # bei multiprocessing auf Windows notwendig
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 
 detectors = Detectors(fs)
+cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 
 feature_vector = np.array([])  # create empty arrays for features and targets
 targets = np.array([])
 
-is_binary_classifier = False    # binary model or not
-
 for idx, ecg_lead in enumerate(ecg_leads):
-    rr_intervals = detectors.hamilton_detector(ecg_lead)
+    spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
+    corr_features = tsfel.correlated_features(spectral_features)
+    spectral_features.drop(corr_features, axis=1, inplace=True)
+    spectral_features = spectral_features.to_numpy()
+
+    rr_intervals = detectors.two_average_detector(ecg_lead)
+
     if len(rr_intervals) == 1:
         rr_intervals = np.abs(rr_intervals)
         arti_rr_1 = rr_intervals * random.random()
         rr_intervals = np.append(rr_intervals, [arti_rr_1])     # append rr_intervals to have at least two values
 
     rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
-
     rr_intervals_ms = [abs(number) for number in rr_intervals_ms]  # make rr_intervals positive
 
     rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # preprocessing
@@ -116,137 +127,117 @@ for idx, ecg_lead in enumerate(ecg_leads):
     dict_entropy = hrv.get_sampen(rr_intervals_list)
     dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
 
-    if is_binary_classifier:
-        if ecg_labels[idx] == 'N':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 0)
+    if ecg_labels[idx] == 'N':
+        values_time = list(dict_time_domain.values())
+        values_frequency = list(dict_frequency_domain.values())
+        values_geometrical = list(dict_geometrical_features.values())
+        values_pointcare = list(dict_pointcare.values())
+        values_entropy = list(dict_entropy.values())
+        values_csicsv = list(dict_csi_csv.values())
+        targets = np.append(targets, 0)             # saves 'N' as 0
 
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
-        if ecg_labels[idx] == 'A':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 1)
+        feature_vector = np.append(feature_vector, values_time)
+        feature_vector = np.append(feature_vector, values_frequency)
+        feature_vector = np.append(feature_vector, values_geometrical)
+        feature_vector = np.append(feature_vector, values_pointcare)
+        feature_vector = np.append(feature_vector, values_entropy)
+        feature_vector = np.append(feature_vector, values_csicsv)
+        feature_vector = np.append(feature_vector, spectral_features)
+    if ecg_labels[idx] == 'A':
+        values_time = list(dict_time_domain.values())
+        values_frequency = list(dict_frequency_domain.values())
+        values_geometrical = list(dict_geometrical_features.values())
+        values_pointcare = list(dict_pointcare.values())
+        values_entropy = list(dict_entropy.values())
+        values_csicsv = list(dict_csi_csv.values())
+        targets = np.append(targets, 1)             # saves 'A' as 1
 
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
+        feature_vector = np.append(feature_vector, values_time)
+        feature_vector = np.append(feature_vector, values_frequency)
+        feature_vector = np.append(feature_vector, values_geometrical)
+        feature_vector = np.append(feature_vector, values_pointcare)
+        feature_vector = np.append(feature_vector, values_entropy)
+        feature_vector = np.append(feature_vector, values_csicsv)
+        feature_vector = np.append(feature_vector, spectral_features)
+    if ecg_labels[idx] == 'O':
+        values_time = list(dict_time_domain.values())
+        values_frequency = list(dict_frequency_domain.values())
+        values_geometrical = list(dict_geometrical_features.values())
+        values_pointcare = list(dict_pointcare.values())
+        values_entropy = list(dict_entropy.values())
+        values_csicsv = list(dict_csi_csv.values())
+        targets = np.append(targets, 2)             # saves 'O' as 2
 
-        if (idx % 100) == 0:
-            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-    else:
-        if ecg_labels[idx] == 'N':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 0)             # saves 'N' as 0
+        feature_vector = np.append(feature_vector, values_time)
+        feature_vector = np.append(feature_vector, values_frequency)
+        feature_vector = np.append(feature_vector, values_geometrical)
+        feature_vector = np.append(feature_vector, values_pointcare)
+        feature_vector = np.append(feature_vector, values_entropy)
+        feature_vector = np.append(feature_vector, values_csicsv)
+        feature_vector = np.append(feature_vector, spectral_features)
+    if ecg_labels[idx] == '~':
+        values_time = list(dict_time_domain.values())
+        values_frequency = list(dict_frequency_domain.values())
+        values_geometrical = list(dict_geometrical_features.values())
+        values_pointcare = list(dict_pointcare.values())
+        values_entropy = list(dict_entropy.values())
+        values_csicsv = list(dict_csi_csv.values())
+        targets = np.append(targets, 3)             # saves '~' as 3
 
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
-        if ecg_labels[idx] == 'A':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 1)             # saves 'A' as 1
-
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
-        if ecg_labels[idx] == 'O':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 2)             # saves 'O' as 2
-
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
-        if ecg_labels[idx] == '~':
-            values_time = list(dict_time_domain.values())
-            values_frequency = list(dict_frequency_domain.values())
-            values_geometrical = list(dict_geometrical_features.values())
-            values_pointcare = list(dict_pointcare.values())
-            values_entropy = list(dict_entropy.values())
-            values_csicsv = list(dict_csi_csv.values())
-            targets = np.append(targets, 3)             # saves '~' as 3
-
-            feature_vector = np.append(feature_vector, values_time)
-            feature_vector = np.append(feature_vector, values_frequency)
-            feature_vector = np.append(feature_vector, values_geometrical)
-            feature_vector = np.append(feature_vector, values_pointcare)
-            feature_vector = np.append(feature_vector, values_entropy)
-            feature_vector = np.append(feature_vector, values_csicsv)
-        if (idx % 100) == 0:
-            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
+        feature_vector = np.append(feature_vector, values_time)
+        feature_vector = np.append(feature_vector, values_frequency)
+        feature_vector = np.append(feature_vector, values_geometrical)
+        feature_vector = np.append(feature_vector, values_pointcare)
+        feature_vector = np.append(feature_vector, values_entropy)
+        feature_vector = np.append(feature_vector, values_csicsv)
+        feature_vector = np.append(feature_vector, spectral_features)
+    if (idx % 100) == 0:
+        print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
 
-feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 32), 32))  # reshape fv
-feature_vector[:, 24] = 0   # column 24 has None-values
+feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 57), 57))  # reshape fv
+
 
 feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
-                 'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
-                 'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
-                 'csi', 'cvi', 'Modified_csi', 'sampen']
+                     'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr', 'total_power', 'vlf', 'lf',
+                     'hf', 'lf_hf_ratio', 'lfnu', 'hfnu', 'triangular_index', 'tinn', 'sd1', 'sd2', 'ratio_sd2_sd1',
+                     'csi', 'cvi', 'Modified_csi', 'sampen', 'Fundamental freq', 'Human energy range',
+                     'Max power spectrum', 'Max Frequency', 'Median Frequency', 'Power bandwith',
+                     'Spectral centroid', 'Spectral decrease', 'Spectral entropy', 'Spectral kurtosis',
+                     'Spectral positive turning points', 'Spectral roll-off', 'Spectral roll-on', 'Spectral skewness',
+                     'Spectral spread', 'Spectral variation', 'Wavelet abs mean 1', 'Wavelet abs mean 2',
+                     'Wavelet abs mean 3', 'Wavelet abs mean 4', 'Wavelet abs mean 5', 'Wavelet abs mean 6',
+                     'Wavelet abs mean 7', 'Wavelet abs mean 8', 'Wavelet abs mean 9']
 
 index = np.arange(len(feature_vector))
 df = pd.DataFrame(data=feature_vector, index=index, columns=feature_names)
+df = df.drop(columns=['tinn'])  # column has None-values
 
 df = df.replace([np.inf, -np.inf], np.nan)   # Replace other invalid values
 column_means = df.mean()
 df = df.fillna(column_means)
 
-feature_vector = df.to_numpy()
+df = df.assign(Labels=targets)
 
-X = feature_vector
-y = targets
+df = df.to_numpy()
+X = df[:, :-1]
+y = df[:, -1]
 
-rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
-rf.fit(X, y)                # fit Random Forest Classifier
+y = LabelEncoder().fit_transform(y)
+sm = SMOTE(random_state=42)     # handle class_imbalance using oversampling via SMOTE
+X, y = sm.fit_resample(X, y)
 
-if is_binary_classifier:
-    if os.path.exists("model_2p_1.npy"):
-        os.remove("model_2p_1.npy")
-    with open('model_2p_1.npy', 'wb') as f:
-        pickle.dump(rf, f)          # save model
-        print('Training is done')
-else:
-    if os.path.exists("model_4p_1.npy"):
-        os.remove("model_4p_1.npy")
-    with open('model_4p_1.npy', 'wb') as f:
-        pickle.dump(rf, f)          # save model
-        print('Training is done')
+xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0,
+                          subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
+                          nthread=4, scale_pos_weight=1, seed=42)
+xgb.fit(X, y)                # fit XGBoost Classifier
+
+
+
+if os.path.exists("model_4p_2.npy"):
+    os.remove("model_4p_2.npy")
+with open('model_4p_2.npy', 'wb') as f:
+    pickle.dump(xgb, f)          # save model
+
+print('Training is done')
+
