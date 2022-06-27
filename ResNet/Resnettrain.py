@@ -37,16 +37,11 @@ if __name__ == '__main__':
 
 
 
-
-
-
-
-
-
-
     # get the original_dataset
 
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
+    #ecg_leads = wavelet(ecg_leads)
+    #ecg_leads = butterworth(ecg_leads_de)
     #make them the same length
     ecg_labels_std = []
     ecg_leads_std = []
@@ -100,10 +95,10 @@ if __name__ == '__main__':
         dummy = np.zeros(4)
         dummy[int(ecg_labels_std[i])] = 1
         Label_set[i, :] = dummy
-    ecg_leads_de = median_filter(ecg_leads[0:50])
-    #ecg_leads_de = butterworth(ecg_leads[0:50])
-    #ecg_leads_de = wavelet(ecg_leads[0:50])
-    compare_plot(ecg_leads[10],ecg_leads_de[10])
+
+
+
+    #compare_plot(ecg_leads[10],ecg_leads_de[10])
     mats = len(ecg_leads_std)
     # print(len(mats))
 
@@ -112,7 +107,7 @@ if __name__ == '__main__':
     X = ecg_leads_std
     X= np.float32(X)
     Label_set = np.float64(Label_set)
-    train_len = 0.8  # Choice of training size
+    train_len = 0.8 # Choice of training size
     var = int(train_len * (mats))
     X_train = X[:var]
     Y_train = Label_set[:var]
@@ -137,8 +132,14 @@ if __name__ == '__main__':
 
     # define loss and optimizer
     loss_object = tf.keras.losses.CategoricalCrossentropy()
-    optimizer = tf.keras.optimizers.Adadelta()
-
+    #optimizer = tf.keras.optimizers.Adadelta(learning_rate=1) #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
+    optimizer = tf.keras.optimizers.Adagrad(
+        learning_rate=1,
+        initial_accumulator_value=0.1,
+        epsilon=1e-07,
+        name="Adagrad"
+    )
+    #optimizer= tf.keras.optimizers.Adam(learning_rate=0.1)
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
 
@@ -148,11 +149,12 @@ if __name__ == '__main__':
     @tf.function
     def train_step(images, labels):
         with tf.GradientTape() as tape:
-            features,predictions = model(images, training=True)
+            feature1,feature2,feature3,feature4,predictions = model(images, training=True)
             print(predictions)
             print(labels)
             loss = loss_object(y_true=labels, y_pred=predictions)
         gradients = tape.gradient(loss, model.trainable_variables)
+        print("gradients",gradients)
         optimizer.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
 
         train_loss(loss)
@@ -160,7 +162,7 @@ if __name__ == '__main__':
 
     @tf.function
     def valid_step(images, labels):
-        features,predictions = model(images, training=False)
+        feature1,feature2,feature3,feature4,predictions = model(images, training=False)
         v_loss = loss_object(labels, predictions)
 
         valid_loss(v_loss)

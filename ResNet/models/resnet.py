@@ -78,14 +78,14 @@ class ResNetTypeII(tf.keras.Model):
         x = self.bn1(x, training=training)
         x = tf.nn.relu(x)
         x = self.pool1(x)
-        x = self.layer1(x, training=training)
-        x = self.layer2(x, training=training)
-        x = self.layer3(x, training=training)
-        output2 = self.layer4(x, training=training)
-        output1 = self.avgpool(output2)
+        feature1 = self.layer1(x, training=training)
+        feature2 = self.layer2(x, training=training)
+        feature3 = self.layer3(x, training=training)
+        feature4 = self.layer4(x, training=training)
+        output1 = self.avgpool(feature4)
         output = self.fc(output1)
 
-        return output2,output
+        return feature1,feature2,feature3,feature4,output
 
 
 def resnet_18():
