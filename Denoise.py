@@ -4,11 +4,33 @@ import pywt
 import numpy as np
 from scipy.signal import medfilt
 from scipy import signal
+from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
+from sklearn.decomposition import PCA
+
 import os
 ##https://blog.csdn.net/qq_36495569/article/details/104086636
 #https://blog.csdn.net/qq_39594939/article/details/115697198
 
+def PCAreduce(features):
+    '''two ways to use pca:
+    first one is initially to calculate which index of feature is important and directly use these pretrained index
+     second one is to train it again with the input test data and select the important features'''
+    c, r = features.shape
+    len = len(features)
+    pca = PCA(n_components=len)
+    newX = pca.fit(features)
+
+    m = pca.explained_variance_ratio_
+    print(m)
+    list = np.arange(c)
+    m=np.vstack(m,list)
+
+    return m
+    #return firsthalfindex
+
 def relength(ecg_leads,ecg_labels):
+    '''make the labels as one hot and make the leads the same length with 9000'''
     ecg_labels_std = []
     ecg_leads_extra = []
     ecg_labels_extra = []
@@ -60,8 +82,8 @@ def relength(ecg_leads,ecg_labels):
         dummy = np.zeros(4)
         dummy[int(ecg_labels_std[i])] = 1
         Label_set[i, :] = dummy
-    return ecg_leads_std,Label_set[i,:]
-def wavelet(data,label):
+    return ecg_leads_std,Label_set
+def wavelet(data):
 
     data_denoise = []
     for i in range(len(data)):
@@ -112,6 +134,7 @@ def butterworth(data):
 
 
 def compare_plot(data,datarec):
+    '''compare the denoised and original ecg leads'''
     mintime = 0
     maxtime = mintime + len(data) + 1
     plt.figure()
@@ -128,4 +151,15 @@ def compare_plot(data,datarec):
 
     plt.tight_layout()
     plt.show()
+def feature_plot(feature):
+    plt.figure()
 
+    plt.plot(feature[0,1,2,:])
+    plt.show()
+
+
+def smote_algo(X, y):
+    y = LabelEncoder().fit_transform(y)
+    sm = SMOTE(random_state=42)
+    X_synth, y_synth = sm.fit_resample(X, y)
+    return X_synth, y_synth
