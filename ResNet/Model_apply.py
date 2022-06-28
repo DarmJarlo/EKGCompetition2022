@@ -7,7 +7,7 @@ sys.path.append("..")
 import numpy as np
 from wettbewerb import load_references
 from tensorflow.keras.applications import ResNet50
-from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth,relength,feature_plot
+from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth,relength,feature_plot, PCA_single_reduce
 import config
 from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152
 from wettbewerb import load_references
@@ -59,7 +59,7 @@ def res_feature(data):
 
 if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
-    leads, labels = relength(ecg_leads, ecg_labels)
+    leads, labels ,extra_index = relength(ecg_leads, ecg_labels)
     predictions = []
     Label_set = np.zeros((len(leads), 4))
     '''for i in range(len(labels)):
@@ -71,7 +71,8 @@ if __name__ == '__main__':
     '''
     Y_val = labels
     print(Y_val)
-    for lead in leads[0:1]:
+    features = []
+    for lead in leads[0:4]:
         lead = leads_transfer(lead,(1,50,180,1))
         feature1,feature2,feature3,feature4, prediction = res_feature(lead)
         prediction = prediction.numpy()
@@ -79,14 +80,21 @@ if __name__ == '__main__':
         feature3 = feature3.numpy()
         feature2 = feature2.numpy()
         feature1 = feature1.numpy()
-        print(feature4)
-        print(feature4.shape)
-        print(feature3)
-        print(feature3.shape)
-        print(feature2)
-        print(feature2.shape)
-        print(feature1.shape)
-        feature_plot(feature2)
+        a,b,c,d=feature4.shape
+
+
+
+        features.append(feature4)
+        #print(feature4)
+        #print(feature4.shape)
+        #print(feature3)
+        #print(feature3.shape)
+        #print(feature2)
+        #print(feature2.shape)
+        #print(feature1.shape)
+        feature_plot(feature4)
+    print(features)
+    index = PCA_single_reduce(features)
     #valid_accur        print(feature3.shape)acy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')
     #valid_accuracy(Y_val, predictions)
     #print(valid_accuracy.result)
