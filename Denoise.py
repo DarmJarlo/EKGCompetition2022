@@ -12,21 +12,38 @@ import os
 ##https://blog.csdn.net/qq_36495569/article/details/104086636
 #https://blog.csdn.net/qq_39594939/article/details/115697198
 
-def PCAreduce(features):
-    '''two ways to use pca:
+def PCA_single_reduce(features):
+    '''
+    input should be a list
+    two ways to use pca:
     first one is initially to calculate which index of feature is important and directly use these pretrained index
      second one is to train it again with the input test data and select the important features'''
-    c, r = features.shape
-    len = len(features)
-    pca = PCA(n_components=len)
-    newX = pca.fit(features)
+
+    print('9888888',features.shape)
+    c,r = features.shape
+    features=np.array(features)
+    print(features)
+    pca = PCA(n_components=c*r)
+
+    newX = pca.fit_transform(features)
 
     m = pca.explained_variance_ratio_
     print(m)
-    list = np.arange(c)
+    list = np.arange(r)
     m=np.vstack(m,list)
+    print(m)
+    m = m(m[0,:].argsort())
+    sum=0
+    index = []
 
-    return m
+    for i in range(r):
+        index.append(m[1][i])
+        sum = m[0][i]+sum
+        if sum>0.9:
+            break
+
+
+    return index
     #return firsthalfindex
 
 def relength(ecg_leads,ecg_labels):
@@ -34,6 +51,10 @@ def relength(ecg_leads,ecg_labels):
     ecg_labels_std = []
     ecg_leads_extra = []
     ecg_labels_extra = []
+    extra_index = []
+
+    n=len(ecg_leads)
+    index_plus = n - 1
     for index in range(len(ecg_labels)):
         if ecg_labels[index] == 'N':
             ecg_labels_std.append(0)
@@ -54,35 +75,47 @@ def relength(ecg_leads,ecg_labels):
             ecg_leads[index] = ecg_leads[index][0:9000]
             print(len(ecg_leads[index]))
         elif len(ecg_leads[index] > 9000):
+            extra_index_block=[]
             if len(ecg_leads[index] <= 18000):
                 ecg_leads[index] = ecg_leads[index][0:9000]
+                extra_index_block.append(index)
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
                 ecg_labels_extra.append(ecg_labels_std[index])
             elif len(ecg_leads[index] > 18000):
                 iter = len(ecg_leads[index]) // 9000
                 ecg_leads[index] = ecg_leads[index][:9000]
+                extra_index_block.append(index)
+                index_plus = index_plus+1
                 for i in range(1, iter):
                     start = 9000 * i
                     end = 9000 * (i + 1)
+                    index_plus=index_plus+1
+                    extra_index_block.append(index_plus)
                     ecg_leads_extra.append(ecg_leads[start:end])
                     ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
-                ecg_labels_extra.append(ecg_labels_std[index])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
 
+                ecg_labels_extra.append(ecg_labels_std[index])
+            extra_index.append(extra_index_block)
     ecg_labels_std = ecg_labels_std + ecg_labels_extra
     ecg_leads_std = ecg_leads + ecg_leads_extra
-
+    print('jjjjjjj',extra_index)
+    print(';;;;;;;;;;',len(ecg_leads_extra))
     print(ecg_labels_extra)
     # form the label as one-hot
 
     Label_set = np.zeros((len(ecg_labels_std), 4))
-
+    print('ppppppppppppppppp',len(ecg_leads_std))
     for i in range(len(ecg_labels_std)):
         print('111111', i, ecg_labels_std[i])
         dummy = np.zeros(4)
         dummy[int(ecg_labels_std[i])] = 1
         Label_set[i, :] = dummy
-    return ecg_leads_std,Label_set
+    return ecg_leads_std,Label_set,extra_index
 def wavelet(data):
 
     data_denoise = []
@@ -156,7 +189,7 @@ def feature_plot(feature):
 
     plt.plot(feature[0,1,2,:])
     plt.show()
-
+#def extra_index_pred(ecg_leads,extra_index)
 
 def smote_algo(X, y):
     y = LabelEncoder().fit_transform(y)
