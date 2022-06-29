@@ -129,7 +129,8 @@ if __name__ == '__main__':
 
     # define loss and optimizer
     loss_object = tf.keras.losses.CategoricalCrossentropy()
-    optimizer_1 = tf.keras.optimizers.Adadelta(learning_rate=2)
+    alpha = 0.01
+    optimizer_1 = tf.keras.optimizers.Adadelta(learning_rate=alpha)
     #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
     '''optimizer = tf.keras.optimizers.Adagrad(
         learning_rate=1,
@@ -200,7 +201,7 @@ if __name__ == '__main__':
         else:
             alpha = alpha/2
         print("alpha",alpha)
-        optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
+        #optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
         step = 0
         for images, labels in train_dataset:
             #print("images",images.shape,labels.shape)
