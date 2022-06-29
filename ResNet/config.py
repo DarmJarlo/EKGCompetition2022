@@ -1,9 +1,9 @@
 # some training parameters
 EPOCHS = 10
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 NUM_CLASSES = 4
-image_height = 50
-image_width = 180
+image_height = 90
+image_width = 100
 channels = 1
 save_model_dir = "saved_model/model"
 dataset_dir = "dataset/"
@@ -15,5 +15,6 @@ test_dir = dataset_dir + "test"
 # model = "resnet18"
 # model = "resnet34"
 model = "resnet50"
+#model = "resnet_mini"
 # model = "resnet101"
 # model = "resnet152"

@@ -190,6 +190,7 @@ def feature_plot(feature):
     plt.plot(feature[0,1,2,:])
     plt.show()
 #def extra_index_pred(ecg_leads,extra_index)
+#def smote_NN(data,label):
 
 def smote_algo(X, y):
     y = LabelEncoder().fit_transform(y)

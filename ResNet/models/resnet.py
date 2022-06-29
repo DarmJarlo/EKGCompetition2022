@@ -71,6 +71,7 @@ class ResNetTypeII(tf.keras.Model):
                                             stride=2)
 
         self.avgpool = tf.keras.layers.GlobalAveragePooling2D()
+        #self.fc2 = tf.keras.layers.Dense(units=128, activation=tf.keras.activations.softmax)
         self.fc = tf.keras.layers.Dense(units=NUM_CLASSES, activation=tf.keras.activations.softmax)
 
     def call(self, inputs, training=None, mask=None):
@@ -83,9 +84,12 @@ class ResNetTypeII(tf.keras.Model):
         feature3 = self.layer3(feature2, training=training)
         feature4 = self.layer4(feature3, training=training)
         output1 = self.avgpool(feature4)
-        output = self.fc(output1)
+        #output1= self.fc2(output2)
+        #print('PPPPPPPPPPPP',output1.shape) #shape 128x2048
 
-        return feature1,feature2,feature3,feature4,output
+        output = self.fc(output1)
+        #output = output/sum(output)
+        return feature1,feature2,feature3,feature4,output,output1
         #return output
 
 

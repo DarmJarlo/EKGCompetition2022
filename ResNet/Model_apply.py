@@ -16,6 +16,7 @@ def leads_transfer(data,shape):
     data = np.float32(data)
 
     data = np.reshape(data, shape)
+
     data_t = tf.convert_to_tensor(data, np.float32)
 
     return data_t
@@ -72,10 +73,13 @@ if __name__ == '__main__':
     Y_val = labels
     print(Y_val)
     features = []
-    for lead in leads[0:4]:
-        lead = leads_transfer(lead,(1,50,180,1))
-        feature1,feature2,feature3,feature4, prediction = res_feature(lead)
+    i=4999
+    for lead in leads[5000:5100]:
+        lead = leads_transfer(lead,(1,90,100,1))
+        feature1,feature2,feature3,feature4, prediction,feature4_pooled = res_feature(lead)
         prediction = prediction.numpy()
+        i=i+1
+        print(i,prediction)
         feature4 = feature4.numpy()
         feature3 = feature3.numpy()
         feature2 = feature2.numpy()
@@ -94,7 +98,7 @@ if __name__ == '__main__':
         #print(feature1.shape)
         feature_plot(feature4)
     print(features)
-    index = PCA_single_reduce(features)
+    #index = PCA_single_reduce(features)
     #valid_accur        print(feature3.shape)acy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')
     #valid_accuracy(Y_val, predictions)
     #print(valid_accuracy.result)

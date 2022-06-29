@@ -122,7 +122,7 @@ class Own_BottleNeck(tf.keras.layers.Layer):
 
         '''there two commented lines are in the original model'''
         #x = self.bn3(x, training=training)
-        print(residual.shape)
+        #print(residual.shape)
         #output = tf.nn.relu(tf.keras.layers.add([residual, x]))
         output = tf.keras.layers.add([residual, x])
 

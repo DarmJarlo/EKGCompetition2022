@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 import tensorflow as tf
-from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152
+from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152,resnet_mini
 from keras.callbacks import ModelCheckpoint
 import config
 from prepare_data import generate_datasets
@@ -9,9 +9,9 @@ import sys
 sys.path.append("..")
 import numpy as np
 from wettbewerb import load_references
-from tensorflow.keras.applications import ResNet50
+
 from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth
-#https://github.com/calmisential/TensorFlow2.0_ResNet
+#ResNet part code  are adopted from https://github.com/calmisential/TensorFlow2.0_ResNet
 def get_model():
     #model = ResNet50(input_shape=(20,45,1))
     model = resnet_50()
@@ -23,6 +23,8 @@ def get_model():
         model = resnet_101()
     if config.model == "resnet152":
         model = resnet_152()
+    if config.model == "resnetmini":
+        model = resnet_mini()
     model.build(input_shape=(None, config.image_height, config.image_width, config.channels))
     model.summary()# print the network structure
     return model
@@ -98,29 +100,24 @@ if __name__ == '__main__':
 
 
 
-    #compare_plot(ecg_leads[10],ecg_leads_de[10])
+
     mats = len(ecg_leads_std)
-    # print(len(mats))
 
-
-    #data transfer
     X = ecg_leads_std
+    X= wavelet(X)
+    X=butterworth(X)
     X= np.float32(X)
     Label_set = np.float64(Label_set)
     train_len = 0.8 # Choice of training size
     var = int(train_len * (mats))
     X_train = X[:var]
     Y_train = Label_set[:var]
-
-    # Y_train = Label_set[:int(train_len * (mats))]
     print(Y_train)
-    # X_val = X[int(train_len * (mats)):]
-    # Y_val = Label_set[int(train_len * (mats)):]
     X_val = X[var:]
     Y_val = Label_set[var:]
     # reshape input to be [samples, tensor shape (30 x 300)]
-    n = 50
-    m = 180
+    n = 90
+    m = 100
     c = 1  # number of channels
 
     X_train = np.reshape(X_train, (X_train.shape[0], n, m, c))
@@ -132,37 +129,47 @@ if __name__ == '__main__':
 
     # define loss and optimizer
     loss_object = tf.keras.losses.CategoricalCrossentropy()
-    #optimizer = tf.keras.optimizers.Adadelta(learning_rate=1) #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
-    optimizer = tf.keras.optimizers.Adagrad(
+    optimizer_1 = tf.keras.optimizers.Adadelta(learning_rate=2)
+    #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
+    '''optimizer = tf.keras.optimizers.Adagrad(
         learning_rate=1,
         initial_accumulator_value=0.1,
         epsilon=1e-07,
         name="Adagrad"
-    )
-    #optimizer= tf.keras.optimizers.Adam(learning_rate=0.1)
-    train_loss = tf.keras.metrics.Mean(name='train_loss')
+    )'''
+    #optimizer_1= tf.keras.optimizers.Adam(learning_rate=0.2)
+    train_loss = tf.keras.metrics.Mean(name='train_loss')#this mean only calculate the  mean of the loss
     train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
 
     valid_loss = tf.keras.metrics.Mean(name='valid_loss')
     valid_accuracy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')
 
     @tf.function
-    def train_step(images, labels):
+    def train_step(images, labels,epoch):
+        #print('zzzzzzzzzzzzzz')
         with tf.GradientTape() as tape:
-            feature1,feature2,feature3,feature4,predictions = model(images, training=True)
+            feature1,feature2,feature3,feature4,predictions,feature4_pooled = model(images, training=True)#dont forget here we are inputing a whole batch
+            print('oooooooooooo',epoch,feature4_pooled)
+            #predictions = model(images, training=True)
+            #predictions = predictions.numpy()
+            #predictions = predictions/np.sum(predictions)
             print(predictions)
-            print(labels)
+
+            #print(labels)
             loss = loss_object(y_true=labels, y_pred=predictions)
         gradients = tape.gradient(loss, model.trainable_variables)
-        print("gradients",gradients)
-        optimizer.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
+        #print("gradients",gradients)
+
+        optimizer_1.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
 
         train_loss(loss)
         train_accuracy(labels, predictions)
+        return gradients
 
     @tf.function
     def valid_step(images, labels):
-        feature1,feature2,feature3,feature4,predictions = model(images, training=False)
+        feature1,feature2,feature3,feature4,predictions,feature4_pooled = model(images, training=False)
+        #predictions = model(images, training=False)
         v_loss = loss_object(labels, predictions)
 
         valid_loss(v_loss)
@@ -177,10 +184,10 @@ if __name__ == '__main__':
     valid_dataset = tf.data.Dataset.zip((X_val, Y_val))
 
     train_count = len(train_dataset)
-    print(train_count)
+    print("traincount",np.array(train_count).shape)
 
     train_dataset = train_dataset.shuffle(buffer_size=train_count).batch(batch_size=config.BATCH_SIZE)
-    print('ddddddddddddddddd',train_dataset)
+    #print('ddddddddddddddddd',train_dataset)
     valid_dataset = valid_dataset.batch(batch_size=config.BATCH_SIZE)
     # start training
     for epoch in range(config.EPOCHS):
@@ -188,16 +195,25 @@ if __name__ == '__main__':
         train_accuracy.reset_states()
         valid_loss.reset_states()
         valid_accuracy.reset_states()
+        if epoch < 6:
+            alpha = epoch*0.2+0.2
+        else:
+            alpha = alpha/2
+        print("alpha",alpha)
+        optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
         step = 0
         for images, labels in train_dataset:
+            #print("images",images.shape,labels.shape)
             step += 1
-            train_step(images, labels)
+            #gradients=train_step(images, labels)
+            train_step(images, labels,epoch)
             print("Epoch: {}/{}, step: {}/{}, loss: {:.5f}, accuracy: {:.5f}".format(epoch + 1,
                                                                                      config.EPOCHS,
                                                                                      step,
                                                                                      math.ceil(train_count / config.BATCH_SIZE),
                                                                                      train_loss.result(),
                                                                                      train_accuracy.result()))
+            #print(gradients)
 
         for valid_images, valid_labels in valid_dataset:
             valid_step(valid_images, valid_labels)
@@ -209,9 +225,9 @@ if __name__ == '__main__':
                                                                   train_accuracy.result(),
                                                                   valid_loss.result(),
                                                                   valid_accuracy.result()))
-    checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
+    '''checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
                                    monitor='val_accuracy',
-                                   save_weights_only=False, period=1, verbose=1, save_best_only=False)
+                                   save_weights_only=False, period=1, verbose=1, save_best_only=False)'''
     model.save('Keras_models/new_model')
     #model.save_weights(filepath=config.save_model_dir, save_format='tf')
     #tf.saved_model.save(model, config.save_model_dir)
