@@ -190,7 +190,12 @@ def feature_plot(feature):
     plt.plot(feature[0,1,2,:])
     plt.show()
 #def extra_index_pred(ecg_leads,extra_index)
-#def smote_NN(data,label):
+def smote_NN(data,label):
+    #in fact a kmeanssmote
+    y = LabelEncoder().fit_transform(y)
+    sm = KMeansSMOTE(random_state=42)
+    X_synth, y_synth = sm.fit_resample(X, y)
+    return X_synth, y_synth
 
 def smote_algo(X, y):
     y = LabelEncoder().fit_transform(y)

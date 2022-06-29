@@ -1,6 +1,7 @@
 from tensorflow.keras.applications import ResNet50
 import tensorflow.keras as keras
 import tensorflow as tf
+from scipy import signal
 from keras import Model
 import sys
 sys.path.append("..")
@@ -12,13 +13,15 @@ import config
 from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152
 from wettbewerb import load_references
 
-def leads_transfer(data,shape):
+def leads_transfer(data,shape,label):
     data = np.float32(data)
-
+    label = np.float64(label)
+    print(data)
     data = np.reshape(data, shape)
 
     data_t = tf.convert_to_tensor(data, np.float32)
-
+    label_t = tf.convert_to_tensor(label, np.float64)
+    #dataset = tf.data.Dataset.zip((data_t, label_t))
     return data_t
 
 
@@ -48,10 +51,10 @@ def res_feature(data):
 
 
     model = tf.saved_model.load('Keras_models/new_model')
-    feature1, feature2, feature3, feature4, prediction = model(data)
+    feature1, feature2, feature3, feature4, prediction,feature4_pooled = model(data)
     # print(prediction)
     # print(feature4)
-    return feature1, feature2, feature3,feature4, prediction
+    return feature1, feature2, feature3,feature4, prediction,feature4_pooled
 #x = model.layers[-1].output
 #x = Dense(256)(x)
 #predictions = Dense(15, activation = "softmax")(x)
@@ -62,7 +65,7 @@ if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
     leads, labels ,extra_index = relength(ecg_leads, ecg_labels)
     predictions = []
-    Label_set = np.zeros((len(leads), 4))
+
     '''for i in range(len(labels)):
         print('2222', i, labels[i])
         dummy = np.zeros(4)
@@ -70,12 +73,14 @@ if __name__ == '__main__':
         Label_set[i, :] = dummy
     Y_val = tf.data.Dataset.from_tensor_slices(Label_set)
     '''
-    Y_val = labels
-    print(Y_val)
+
     features = []
     i=4999
-    for lead in leads[5000:5100]:
-        lead = leads_transfer(lead,(1,90,100,1))
+
+    test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
+
+    for index in range(5200,5300):
+        lead = leads_transfer(leads[index], (1, 90, 100, 1), labels[index])
         feature1,feature2,feature3,feature4, prediction,feature4_pooled = res_feature(lead)
         prediction = prediction.numpy()
         i=i+1
@@ -84,10 +89,15 @@ if __name__ == '__main__':
         feature3 = feature3.numpy()
         feature2 = feature2.numpy()
         feature1 = feature1.numpy()
-        a,b,c,d=feature4.shape
-
-
-
+        #a,b,c,d=feature4.shape
+        feature4_p= feature4_pooled.numpy()
+        feature4_p=feature4_p.reshape((32,64))
+        print(feature4_p.shape)
+        kernel = [[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,1]]
+        feature4_p = signal.convolve2d(feature4_p, kernel)[ ::3,::3]
+#add the padding mode tomorrow
+        test_accuracy(labels[index], prediction)
+        print(feature4_p.shape)
         features.append(feature4)
         #print(feature4)
         #print(feature4.shape)
@@ -96,7 +106,8 @@ if __name__ == '__main__':
         #print(feature2)
         #print(feature2.shape)
         #print(feature1.shape)
-        feature_plot(feature4)
+        #feature_plot(feature4)
+        print("Epoch: {},  accuracy: {:.5f}".format(index + 1, test_accuracy.result()))
     print(features)
     #index = PCA_single_reduce(features)
     #valid_accur        print(feature3.shape)acy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')

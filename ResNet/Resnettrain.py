@@ -130,6 +130,7 @@ if __name__ == '__main__':
     # define loss and optimizer
     loss_object = tf.keras.losses.CategoricalCrossentropy()
     alpha = 0.01
+    accu = 0
     optimizer_1 = tf.keras.optimizers.Adadelta(learning_rate=alpha)
     #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
     '''optimizer = tf.keras.optimizers.Adagrad(
@@ -198,8 +199,10 @@ if __name__ == '__main__':
         valid_accuracy.reset_states()
         if epoch < 6:
             alpha = epoch*0.2+0.2
+        elif epoch > 15 and accu < 0.85:
+            alpha = 0.2+(epoch-16*0.2)
         else:
-            alpha = alpha/2
+            alpha = alpha/5
         print("alpha",alpha)
         #optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
         step = 0
@@ -226,6 +229,9 @@ if __name__ == '__main__':
                                                                   train_accuracy.result(),
                                                                   valid_loss.result(),
                                                                   valid_accuracy.result()))
+
+        # dont forget to add valid dataset back to train set
+        accu = valid_accuracy.result()
     '''checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
                                    monitor='val_accuracy',
                                    save_weights_only=False, period=1, verbose=1, save_best_only=False)'''
