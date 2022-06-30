@@ -3,7 +3,7 @@ Implementing a machine learning algorithm with extracted features of data_analys
 """
 
 import numpy as np
-#import data_analysis as analysis
+import data_analysis as analysis
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -116,27 +116,6 @@ def tuning():
     print(grid_search_forest.best_estimator_)
 
 
-def algorithm_pipeline(X_train_data, X_test_data, y_train_data, y_test_data,
-                       model, param_grid, cv=10, scoring_fit='f1_macro',
-                       do_probabilities=False):
-    gs = GridSearchCV(
-        estimator=model,
-        param_grid=param_grid,
-        cv=cv,
-        n_jobs=-1,
-        scoring=scoring_fit,
-        verbose=2
-    )
-    fitted_model = gs.fit(X_train_data, y_train_data)
-
-    if do_probabilities:
-        pred = fitted_model.predict_proba(X_test_data)
-    else:
-        pred = fitted_model.predict(X_test_data)
-
-    return fitted_model, pred
-
-
 def xgb():
     df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
     df = df.to_numpy()
@@ -211,11 +190,11 @@ def xgb():
 
 trained_xgb, X_test, y_test = xgb()  # XGBoosting
 y_pred = trained_xgb.predict(X_test)
-
+print(y_pred)
 print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-print('Precision:', metrics.precision_score(y_test, y_pred, average='macro')) #)) #, average=None))
-print('Recall:', metrics.recall_score(y_test, y_pred, average='macro')) #)) #, average=None))
-print('F1:', metrics.f1_score(y_test, y_pred, average='macro')) #)) #, average=None))
+print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
+print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
+print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
 
 #sort = trained_rf.feature_importances_.argsort()
 #feature_names = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5', 'Feature 6', 'Feature 7', 'Feature 8',

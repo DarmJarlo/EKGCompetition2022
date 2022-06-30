@@ -3,9 +3,6 @@ Datei ist für Analyse der Daten gedacht. Welche Sachen sind auffällig, wie kö
 """
 
 import numpy as np
-
-
-import Denoise
 from wettbewerb import load_references
 from collections import Counter
 from scipy.signal import medfilt
@@ -23,7 +20,7 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn import preprocessing
 
 
-ecg_leads, ecg_labels, fs, ecg_names = load_references()
+#ecg_leads, ecg_labels, fs, ecg_names = load_references()
 #a = dict(Counter(ecg_labels))
 #print(a)
 
@@ -132,9 +129,8 @@ def feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem=False
     feature_vector = np.array([])
     targets = np.array([])
 
-    ecg_filtered = Denoise.wavelet(ecg_leads)
 
-    for idx, ecg_lead in enumerate(ecg_filtered):
+    for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals = detectors.hamilton_detector(ecg_lead)
         if len(rr_intervals) == 1:
             rr_intervals = np.abs(rr_intervals)
@@ -574,7 +570,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
         dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
 
         if four_problem:
-            if ecg_labels[idx] == 'N':
+            if ecg_labels[idx] == 0: #'N':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
                 values_geometrical = list(dict_geometrical_features.values())
@@ -590,7 +586,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
                 feature_vector = np.append(feature_vector, spectral_features)
-            if ecg_labels[idx] == 'A':
+            if ecg_labels[idx] == 1: #'A':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
                 values_geometrical = list(dict_geometrical_features.values())
@@ -606,7 +602,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
                 feature_vector = np.append(feature_vector, spectral_features)
-            if ecg_labels[idx] == 'O':
+            if ecg_labels[idx] == 2: #'O':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
                 values_geometrical = list(dict_geometrical_features.values())
@@ -622,7 +618,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
                 feature_vector = np.append(feature_vector, values_entropy)
                 feature_vector = np.append(feature_vector, values_csicsv)
                 feature_vector = np.append(feature_vector, spectral_features)
-            if ecg_labels[idx] == '~':
+            if ecg_labels[idx] == 3: #'~':
                 values_time = list(dict_time_domain.values())
                 values_frequency = list(dict_frequency_domain.values())
                 values_geometrical = list(dict_geometrical_features.values())
@@ -702,7 +698,7 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     df = df.assign(Labels=targets)
 
     if save:
-        df.to_csv('../datasets/two_average_filtered_extended.csv', encoding='utf-8', index=False)
+        df.to_csv('../datasets/features_uniform_length.csv', encoding='utf-8', index=False)
 
     "Normal: 3581, Other: 1713, Noise: 185, AFib: 521"
 
@@ -710,6 +706,15 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
 
     return feature_vector, df
 
+
+print('Loading dataset')
+df = pd.read_csv('../datasets/df_uniform.csv')
+print('done')
+df = df.to_numpy()
+X = df[:,:-1]
+y = df[:,-1]
+
+feature_extraction(X, y, fs=300, four_problem=True, nn_intervals=False, save=True)
 """
 Random Oversampling method
 """
@@ -867,6 +872,23 @@ def uniform_length(ecg_leads, ecg_labels):
     df = df.to_numpy()
     return df
 
+def uniform_dataframe(ecg_leads, ecg_labels, save=False):
+    df_uni = uniform_length(ecg_leads, ecg_labels)
+    X = df_uni[:, :-1]
+    y = df_uni[:, -1]
+
+    X, y = smote_algo(X, y)
+    col = np.arange(9000)
+    index = np.arange(len(X))
+    df = pd.DataFrame(data=X, index=index, columns=col)
+    df = df.assign(Labels=y)
+
+    if save:
+        df.to_csv('../datasets/df_uniform.csv', encoding='utf-8', index=False)
+    return df
+
+
+
 #df = uniform_length(ecg_leads, ecg_labels)
 
 #X = df[:,:-1]
@@ -888,17 +910,17 @@ def uniform_length(ecg_leads, ecg_labels):
 #df = pd.DataFrame(data=features, index=idx, columns=spectral_features)
 #df.head()
 
-features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
+#features, df = feature_extraction(ecg_leads, ecg_labels, fs, four_problem=True, save=True)
 #print(df.head())
 #df = pd.read_csv('features_filtered_extended.csv')
 #df = df.to_numpy()
 
 
-X = features[:,:-1]
-y = features[:,-1]
-X_synth, y_synth = smote_algo(X, y)
-print('Resampled Dataset shape %s' % Counter(y_synth))
+#X = features[:,:-1]
+#y = features[:,-1]
+#X_synth, y_synth = smote_algo(X, y)
+#print('Resampled Dataset shape %s' % Counter(y_synth))
 
-df = create_dataset(X_synth, y_synth, save=False)
-print('done')
+#df = create_dataset(X_synth, y_synth, save=False)
+#print('done')
 
