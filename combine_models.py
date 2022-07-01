@@ -24,6 +24,7 @@ from xgboost import XGBClassifier
 from sklearn import metrics
 from sklearn.decomposition import PCA
 import tensorflow as tf
+from scipy import signal
 
 
 def uniform_dataframe(save=False):
@@ -143,7 +144,9 @@ def features_res(data):
         lead = data[i]
         leads = leads_transfer(lead,shape=(1,50,180,1))
         predictions, features = res_feature(model, leads)
-        features = features.reshape(-1, 2048)
+        kernel = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]]
+        features = signal.convolve2d(features, kernel)[::3, ::3]
+        #features = features.reshape(-1, 276)
         #pca = PCA()
         #pca.fit(features)
         #print(np.round(pca.explained_variance_ratio_, 5)[:10].sum())
@@ -155,49 +158,55 @@ def features_res(data):
     pred_list = np.vstack(pred_list)
     pca = PCA()
     pca.fit(f_list)
-    print(np.round(pca.explained_variance_ratio_, 40)[:40].sum())
-    f_list = pca.transform(f_list)[:, :40]
+    print(np.round(pca.explained_variance_ratio_, 32)[:32].sum())
+    f_list = pca.transform(f_list)[:, :35]
     return f_list, pred_list
 
 
 def train_both(save=False):
     print('loading dataset')
-    df = pd.read_csv('../datasets/df_uniform.csv')
+    df_samples = pd.read_csv('../datasets/df_uniform.csv')
     print('done')
-    df = df.to_numpy()
-    X = df[:, :-1]
-    y = df[:, -1]
+    df_res = df_samples.to_numpy()
+    X_res = df_res[:, :-1]
+    y_res = df_res[:, -1]
     #X = X[:1000]
     #y = y[:1000]
-    y = LabelEncoder().fit_transform(y)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    y_res = LabelEncoder().fit_transform(y_res)
+    X_train_res, X_test_res, y_train_res, y_test_res = train_test_split(X_res, y_res, test_size=0.2, random_state=42)
 
-    Label_set_train = np.zeros((len(y_train), 4))
-    Label_set_test = np.zeros((len(y_test), 4))
+    Label_set_train = np.zeros((len(y_train_res), 4))
+    Label_set_test = np.zeros((len(y_test_res), 4))
 
-    for i in range(len(y_train)):
-        print('111111',i,y_train[i])
+    for i in range(len(y_train_res)):
+        print('111111',i,y_train_res[i])
         dummy_test = np.zeros(4)
-        dummy_test[int(y_train[i])] = 1
+        dummy_test[int(y_train_res[i])] = 1
         Label_set_train[i, :] = dummy_test
 
-    for j in range(len(y_test)):
-        print('111111',j,y_train[j])
+    for j in range(len(y_test_res)):
+        print('111111',j,y_test_res[j])
         dummy_test = np.zeros(4)
-        dummy_test[int(y_train[j])] = 1
+        dummy_test[int(y_test_res[j])] = 1
         Label_set_test[j, :] = dummy_test
 
-    train_res(X_train, Label_set_train)
-    #X_train, y_train = uniform_length(X_train, y_train)
-    features_resnet_train, pred_resnet_train = features_res(X_train)
-    features_resnet_test, pred_resnet_test = features_res(X_test)
+    train_res(X_train_res, Label_set_train)
+    features_resnet_train, pred_resnet_train = features_res(X_train_res)
+    features_resnet_test, pred_resnet_test = features_res(X_test_res)
 
-    features_xgb, df_xgb = feature_extraction(X_train, fs=300)
+    print('loading dataset')
+    df_features = pd.read_csv('../datasets/features_uniform_length.csv')
+    print('done')
+    df_features = df_features.to_numpy()
+    X_xgb = df_features[:, :-1]
+    y_xgb = df_features[:, -1]
+    X_train_xgb, X_test_xgb, y_train_xgb, y_test_xgb = train_test_split(X_xgb, y_xgb, test_size=0.2, random_state=42)
+    #features_xgb, df_xgb = feature_extraction(X_train_xgb, fs=300)
     #X_train_xgb = features_xgb
-    X_train_xgb = np.concatenate((features_xgb, features_resnet_train), axis=1)
-    y_train_xgb = np.array([y_train])
+    X_train_xgb = np.concatenate((X_train_xgb, features_resnet_train), axis=1)
+    y_train_xgb = np.array([y_train_xgb])
     y_train_xgb = y_train_xgb.T
-    xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0.1,
+    xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=10, min_child_weight=0, gamma=0.1,
                           subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
                           nthread=4, scale_pos_weight=1, seed=42)
     xgb.fit(X_train_xgb, y_train_xgb.T)
@@ -209,19 +218,20 @@ def train_both(save=False):
 
     print('Training is done')
 
-    return xgb, features_resnet_test, pred_resnet_test, X_test, y_test
+    return xgb, features_resnet_test, pred_resnet_test, X_test_res, y_test_res, X_test_xgb, y_test_xgb
 
 
-def test_both(xgb, res_features, pred_resnet, X_test, y_test, both=False):
-    xgb_features, data = feature_extraction(X_test, fs=300)
+def test_both(xgb, res_features, pred_resnet, X_test_xgb, y_test_xgb, both=False):
+    #xgb_features, data = feature_extraction(X_test, fs=300)
+
     if both:
-        pred_xgb = xgb.predict_proba(xgb_features)
-        xgb_features = np.concatenate((xgb_features, res_features), axis=1)
-        xgb_pred = xgb.predict(xgb_features)
+        #pred_xgb = xgb.predict_proba(xgb_features)
+        #xgb_features = np.concatenate((xgb_features, res_features), axis=1)
+        #xgb_pred = xgb.predict(xgb_features)
         y_pred = np.array([])
-        for i in range(len(xgb_pred)):
-            label = np.argmax(xgb_pred[i])
-            y_pred = np.append(y_pred, label)
+        #for i in range(len(xgb_pred)):
+        #    label = np.argmax(xgb_pred[i])
+        #    y_pred = np.append(y_pred, label)
         #f_list, pred_list = features_res(X_test)
         #for i in range(len(X_test)):
         #    print(i)
@@ -238,7 +248,7 @@ def test_both(xgb, res_features, pred_resnet, X_test, y_test, both=False):
         #    y_pred.append(label)
         #y_pred = np.vstack(y_pred)
     else:
-        xgb_features = np.concatenate((xgb_features, res_features), axis=1)
+        xgb_features = np.concatenate((X_test_xgb, res_features), axis=1)
         xgb_pred = xgb.predict(xgb_features)
         y_pred = np.array([])
         for i in range(len(xgb_pred)):
@@ -247,22 +257,63 @@ def test_both(xgb, res_features, pred_resnet, X_test, y_test, both=False):
         #y_pred = np.vstack(y_pred)
         #y_pred = y_pred.T
     print(y_pred)
-    print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-    print('Precision:', metrics.precision_score(y_test, y_pred, average=None))
-    print('Recall:', metrics.recall_score(y_test, y_pred, average=None))
-    print('F1:', metrics.f1_score(y_test, y_pred, average=None))
+    print('Accuracy:', metrics.accuracy_score(y_test_xgb, y_pred))
+    print('Precision:', metrics.precision_score(y_test_xgb, y_pred, average=None))
+    print('Recall:', metrics.recall_score(y_test_xgb, y_pred, average=None))
+    print('F1:', metrics.f1_score(y_test_xgb, y_pred, average=None))
 
 
-#xgb, features_resnet, pred_resnet, X_test, y_test = train_both()
-#test_both(xgb, features_resnet, pred_resnet, X_test, y_test, both=True)
+def train_test_res():
+    print('loading dataset')
+    df_samples = pd.read_csv('../datasets/df_uniform.csv')
+    print('done')
+    df_res = df_samples.to_numpy()
+    X_res = df_res[:, :-1]
+    y_res = df_res[:, -1]
+    #X = X[:1000]
+    #y = y[:1000]
+    y_res = LabelEncoder().fit_transform(y_res)
+    X_train_res, X_test_res, y_train_res, y_test_res = train_test_split(X_res, y_res, test_size=0.2, random_state=42)
+
+    Label_set_train = np.zeros((len(y_train_res), 4))
+    Label_set_test = np.zeros((len(y_test_res), 4))
+
+    for i in range(len(y_train_res)):
+        print('111111', i, y_train_res[i])
+        dummy_test = np.zeros(4)
+        dummy_test[int(y_train_res[i])] = 1
+        Label_set_train[i, :] = dummy_test
+
+    for j in range(len(y_test_res)):
+        print('111111', j, y_test_res[j])
+        dummy_test = np.zeros(4)
+        dummy_test[int(y_test_res[j])] = 1
+        Label_set_test[j, :] = dummy_test
+
+    train_res(X_train_res, Label_set_train)
+    features_resnet_test, pred_resnet_test = features_res(X_test_res)
+    y_pred = np.array([])
+    for i in range(len(pred_resnet_test)):
+        label = np.argmax(pred_resnet_test[i])
+        y_pred = np.append(y_pred, label)
+
+    print('Accuracy:', metrics.accuracy_score(y_test_res, y_pred))
+    print('Precision:', metrics.precision_score(y_test_res, y_pred, average=None))
+    print('Recall:', metrics.recall_score(y_test_res, y_pred, average=None))
+    print('F1:', metrics.f1_score(y_test_res, y_pred, average=None))
+
+#train_test_res()
+
+#xgb, features_resnet, pred_resnet, X_test_res, y_test_res, X_test_xgb, y_test_xgb = train_both()
+#test_both(xgb, features_resnet, pred_resnet, X_test_xgb, y_test_xgb, both=False)
 print('Loading dataset')
 df = pd.read_csv('../datasets/df_uniform.csv')
 print('done')
 df = df.to_numpy()
 X = df[:,:-1]
 y = df[:,-1]
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-#features_res(X_train)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+features_res(X_train)
 
 #X_test = X_test[:50]
 #y_test = y_test[:50]

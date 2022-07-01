@@ -707,14 +707,14 @@ def feature_extraction(ecg_leads, ecg_labels, fs, four_problem=False, nn_interva
     return feature_vector, df
 
 
-print('Loading dataset')
-df = pd.read_csv('../datasets/df_uniform.csv')
-print('done')
-df = df.to_numpy()
-X = df[:,:-1]
-y = df[:,-1]
+#print('Loading dataset')
+#df = pd.read_csv('../datasets/df_uniform.csv')
+#print('done')
+#df = df.to_numpy()
+#X = df[:,:-1]
+#y = df[:,-1]
 
-feature_extraction(X, y, fs=300, four_problem=True, nn_intervals=False, save=True)
+#feature_extraction(X, y, fs=300, four_problem=True, nn_intervals=False, save=True)
 """
 Random Oversampling method
 """

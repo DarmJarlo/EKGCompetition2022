@@ -41,7 +41,8 @@ def train_res(X, y):
     n = 50  #90
     m = 180  #100
     c = 1  # number of channels
-
+    #X = wavelet(X)
+    #X = butterworth(X)
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
     X_train = np.float32(X_train)
     X_val = np.float32(X_val)
