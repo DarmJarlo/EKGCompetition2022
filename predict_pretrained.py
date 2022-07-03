@@ -13,15 +13,16 @@ Skript testet das vortrainierte Modell
 #     raise Exception("Internet Access Forbidden")
 # socket.socket = guard
 
-from predict import predict_labels
+from predict2 import predict_labels
 from wettbewerb import load_references, save_predictions
 import argparse
 import time
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
-    parser.add_argument('--test_dir', action='store',type=str,default='../test_examples/')
-    parser.add_argument('--model_name', action='store',type=str,default='model_4p_2.npy')
+    #parser.add_argument('--test_dir', action='store',type=str,default='../test_examples/')
+    parser.add_argument('--test_dir', action='store', type=str, default='../training/')
+    parser.add_argument('--model_name', action='store',type=str,default='model_4p_3.npy')
     args = parser.parse_args()
     
     ecg_leads,ecg_labels,fs,ecg_names = load_references(args.test_dir) # Importiere EKG-Dateien, zugehörige Diagnose, Sampling-Frequenz (Hz) und Name                                                # Sampling-Frequenz 300 Hz

@@ -38,8 +38,8 @@ def train_res(X, y):
             tf.config.experimental.set_memory_growth(gpu, True)
 
     # reshape input to be [samples, tensor shape (30 x 300)]
-    n = 50  #90
-    m = 180  #100
+    n = 90  #90
+    m = 100  #100
     c = 1  # number of channels
     #X = wavelet(X)
     #X = butterworth(X)

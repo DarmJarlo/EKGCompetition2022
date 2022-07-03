@@ -97,6 +97,7 @@ def uniform_length(ecg_leads, ecg_labels):
     df = df.to_numpy()
     return df
 
+
 def wavelet(data):
 
     data_denoise = []
@@ -116,6 +117,7 @@ def wavelet(data):
         data_denoise.append(datarec)
 
     return data_denoise
+
 
 def normalize(data):
     data = data.astype('float')
@@ -181,6 +183,7 @@ def leads_transfer(data,shape):#label):
     #label_t = tf.convert_to_tensor(label, np.float64)
     #dataset = tf.data.Dataset.zip((data_t, label_t))
     return data_t
+
 
 def res_feature(model, data):
     prediction,feature4_pooled = model(data)

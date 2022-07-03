@@ -49,7 +49,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         welches benutzt werden soll
     Returns
     -------
-    predictions : list of tuples
+    predictions_labels : list of tuples
         ecg_name und eure Diagnose
     '''
 
@@ -59,34 +59,61 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         xgb = pickle.load(f)  # load boosting classifier
 
     with open('pca.pkl', 'rb') as pickle_file:
-        pca = pickle.load(pickle_file)  # load trained pca
+        pca = pickle.load(pickle_file)
 
     detectors = Detectors(fs)
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
-    model = tf.saved_model.load('Keras_models/new_model')  # load trained ResNet 50
+    model = tf.saved_model.load('Keras_models/new_model')
 
-    feature_vector = np.array([])  # create empty arrays for features and predictions later
-    predictions = list()
+    is_ensemble = False  # whether using both models as classifiers or just the xgb
+
+    feature_vector = np.array([])  # create empty arrays for features and predictions_labels later
+    predictions_labels = list()
     predictions_res_list = list()
 
-    artificial_idx = []
-    extra_count = []
     ecg_leads_extra = []
+    extra_index = []
+
+    n = len(ecg_leads)
+    index_plus = n - 1
     for index in range(len(ecg_leads)):
         if len(ecg_leads[index]) < 9000:
             lowiter = 9000 // len(ecg_leads[index])
             print(lowiter)
-            artificial_idx.append(index)
             for i in range(lowiter):
                 print(ecg_leads[index].shape)
                 ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
                 print('dadadad', ecg_leads[index].shape)
-                artificial_idx.append(index + i)
             ecg_leads[index] = ecg_leads[index][0:9000]
             print(len(ecg_leads[index]))
+        elif len(ecg_leads[index] > 9000):
+            extra_index_block=[]
+            if len(ecg_leads[index] <= 18000):
+                ecg_leads[index] = ecg_leads[index][0:9000]
+                extra_index_block.append(index)
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
+            elif len(ecg_leads[index] > 18000):
+                iter = len(ecg_leads[index]) // 9000
+                ecg_leads[index] = ecg_leads[index][:9000]
+                extra_index_block.append(index)
+                index_plus = index_plus+1
+                for i in range(1, iter):
+                    start = 9000 * i
+                    end = 9000 * (i + 1)
+                    index_plus=index_plus+1
+                    extra_index_block.append(index_plus)
+                    ecg_leads_extra.append(ecg_leads[start:end])
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
 
-    for idx in range(len(ecg_leads)):
-        ecg_lead = ecg_leads[idx]
+            extra_index.append(extra_index_block)
+    ecg_leads_std = ecg_leads + ecg_leads_extra
+    print(extra_index)
+    for idx in range(len(ecg_leads_std)):
+        ecg_lead = ecg_leads_std[idx]
         spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
         corr_features = tsfel.correlated_features(spectral_features)
         spectral_features.drop(corr_features, axis=1, inplace=True)
@@ -149,6 +176,8 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         feature_vector = np.append(feature_vector, spectral_features)
         feature_vector = np.append(feature_vector, features_res)
 
+        #predictions_res = np.vstack(predictions_res)
+
     feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 137), 137))  # reshape fv
     col = np.arange(137)
     index = np.arange(len(feature_vector))
@@ -162,7 +191,18 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
 
     feature_vector = df.to_numpy()
 
-    predicted_classes = xgb.predict(feature_vector)
+    if is_ensemble:
+        predicted_labels_xgb = xgb.predict_proba(feature_vector)
+        predictions_res = np.vstack(predictions_res_list)
+        temp = predicted_labels_xgb + predictions_res
+        y_pred = []
+        for i in range(len(temp)):
+            label = np.argmax(temp[i])
+            y_pred.append(label)
+        predicted_classes = np.vstack(y_pred)
+
+    else:
+        predicted_classes = xgb.predict(feature_vector)
 
     idx_labels = np.arange(len(predicted_classes))
     columns_labels = np.arange(1)
@@ -173,7 +213,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     predicted_classes = df_labels.to_numpy()
 
     for i in range(len(predicted_classes)):  # create prediction tuple
-        predictions.append((ecg_names[i], predicted_classes[i][0]))
+        predictions_labels.append((ecg_names[i], predicted_classes[i][0]))
 
     # ------------------------------------------------------------------------------
-    return predictions  # Liste von Tupels im Format (ecg_name,label) - Muss unverändert bleiben!
+    return predictions_labels  # Liste von Tupels im Format (ecg_name,label) - Muss unverändert bleiben!

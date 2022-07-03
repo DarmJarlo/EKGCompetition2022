@@ -14,6 +14,8 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import GridSearchCV
 from xgboost import XGBClassifier
+import os
+import pickle
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
 
@@ -117,30 +119,38 @@ def tuning():
 
 
 def xgb():
-    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    df = pd.read_csv('../datasets/features_combined.csv')
     df = df.to_numpy()
     X = df[:, :-1]
     y = df[:, -1]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     param_test1 = {
-        'max_depth': range(3, 10, 2),
+        'max_depth': range(5, 12, 2),
         'min_child_weight': range(1, 6, 2)
     }
     # results: 0.9066260995777382
     # {'max_depth': 7, 'min_child_weight': 1}
+    # new results with more features 0.9914982386491253
+    # {'max_depth': 5, 'min_child_weight': 1}
 
     param_test2 = {
-        'max_depth': [6,7,8],
+        'max_depth': [4,5,6],
         'min_child_weight': [0,1,2]
     }
     # results: 0.9070665614482687
     # {'max_depth': 6, 'min_child_weight': 0}
 
+    # 0.9918207384963065
+    # {'max_depth': 6, 'min_child_weight': 0}
+
+    # TO DO
     param_test3 = {
         'gamma': [i / 10.0 for i in range(0, 5)]
     }
     # results: 0.9070665614482687
+    # {'gamma': 0.0}
+    # 0.9918207384963065
     # {'gamma': 0.0}
 
     param_test4 = {
@@ -149,8 +159,10 @@ def xgb():
     }
     # results: 0.9098046267165903
     # {'colsample_bytree': 0.6, 'subsample': 0.7}
+    # 0.9917730832449966
+    # {'colsample_bytree': 0.6, 'subsample': 0.8}
 
-    # TO DO
+
     param_test5 = {
         'subsample': [i / 100.0 for i in range(55, 70, 5)],
         'colsample_bytree': [i / 100.0 for i in range(65, 80, 5)]
@@ -168,33 +180,40 @@ def xgb():
 
 
     #gsearch1 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6,
-                                                    #min_child_weight=0, gamma=0, subsample=0.55, colsample_bytree=0.75,
-                                                    #objective='multi:softmax', nthread=4, scale_pos_weight=1,
-                                                    #seed=42),
-                            #param_grid=param_test6, scoring='f1_macro', n_jobs=4, cv=5)
+    #                                                min_child_weight=0, gamma=0, subsample=0.55, colsample_bytree=0.75,
+    #                                                objective='multi:softmax', nthread=4, scale_pos_weight=1,
+    #                                                seed=42),
+    #                        param_grid=param_test4, scoring='f1_macro', n_jobs=4, cv=5)
     #gsearch1.fit(X_train, y_train)
     #print(gsearch1.best_score_)
     #print(gsearch1.best_params_)
-    model = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0,
+    model = XGBClassifier(learning_rate=0.1, n_estimators=1500, max_depth=6, min_child_weight=0, gamma=0,
                           subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
                           nthread=4, scale_pos_weight=1, seed=42)
     model.fit(X_train, y_train)
 
+    if os.path.exists("model_4p_3.npy"):
+        os.remove("model_4p_3.npy")
+    with open('model_4p_3.npy', 'wb') as f:
+        pickle.dump(model, f)  # save model
 
-    return model, X_test, y_test
+    print('Training is done')
 
 
+    #return model, X_test, y_test
+
+xgb()
 #tuning()
 #trained_rf, X_test, y_test = feature_training() # Random Forest
 #y_pred = trained_rf.predict(X_test)
 
-trained_xgb, X_test, y_test = xgb()  # XGBoosting
-y_pred = trained_xgb.predict(X_test)
-print(y_pred)
-print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
-print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
-print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
-print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
+#trained_xgb, X_test, y_test = xgb()  # XGBoosting
+#y_pred = trained_xgb.predict(X_test)
+#print(y_pred)
+#print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
+#print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
+#print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
+#print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
 
 #sort = trained_rf.feature_importances_.argsort()
 #feature_names = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5', 'Feature 6', 'Feature 7', 'Feature 8',

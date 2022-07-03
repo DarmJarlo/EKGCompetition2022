@@ -94,15 +94,17 @@ from sklearn.model_selection import train_test_split
 ### if __name__ == '__main__':  # bei multiprocessing auf Windows notwendig
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
-uniform_df = utils.uniform_length(ecg_leads, ecg_labels)
+uniform_df = utils.uniform_length(ecg_leads, ecg_labels)  # make leads length 9000
 ecg_leads = uniform_df[:, :-1]
 ecg_labels = uniform_df[:, -1]
 
 X, y = utils.smote_algo(ecg_leads, ecg_labels)
 y = LabelEncoder().fit_transform(y)
+
 """
 ResNet-Training for later Feature-Extraction
 """
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     for gpu in gpus:
@@ -139,50 +141,33 @@ image_size = (n, m, c)
 # create model
 model = resnet_50()
 model.build(input_shape=(None, config.image_height, config.image_width, config.channels))
-model.summary()# print the network structure
+model.summary() # print the network structure
 
 # define loss and optimizer
 loss_object = tf.keras.losses.CategoricalCrossentropy()
 
-alpha = 0.01
-accu = 0
-#optimizer = tf.keras.optimizers.Adadelta(learning_rate=alpha)
 optimizer = tf.keras.optimizers.Adagrad(
     learning_rate=0.001,
     initial_accumulator_value=0.1,
     epsilon=1e-07,
     name="Adagrad"
 )
-# optimizer = tf.keras.optimizers.Adadelta(learning_rate=1) #10 iteration 0.81  every iteration has better result. BUt maybe overfitting
-# optimizer = tf.keras.optimizers.Adagrad(
-#    learning_rate=0.001,
-#    initial_accumulator_value=0.1,
-#    epsilon=1e-07,
-#    name="Adagrad"
-# )
-# optimizer= tf.keras.optimizers.Adam(learning_rate=0.1)
+
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
 
 valid_loss = tf.keras.metrics.Mean(name='valid_loss')
 valid_accuracy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')
 
-
 @tf.function
 def train_step(images, labels, epoch):
-    # print('zzzzzzzzzzzzzz')
     with tf.GradientTape() as tape:
         predictions, feature4_pooled = model(images, training=True)  # dont forget here we are inputing a whole batch
         print('oooooooooooo', epoch, feature4_pooled)
-        # predictions = model(images, training=True)
-        # predictions = predictions.numpy()
-        # predictions = predictions/np.sum(predictions)
         print(predictions)
 
-        # print(labels)
         loss = loss_object(y_true=labels, y_pred=predictions)
     gradients = tape.gradient(loss, model.trainable_variables)
-    # print("gradients",gradients)
 
     optimizer.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
 
@@ -194,7 +179,6 @@ def train_step(images, labels, epoch):
 @tf.function
 def valid_step(images, labels):
     predictions, feature4_pooled = model(images, training=False)
-    # predictions = model(images, training=False)
     v_loss = loss_object(labels, predictions)
 
     valid_loss(v_loss)
@@ -212,21 +196,21 @@ train_count = len(train_dataset)
 print("traincount", np.array(train_count).shape)
 
 train_dataset = train_dataset.shuffle(buffer_size=train_count).batch(batch_size=config.BATCH_SIZE)
-# print('ddddddddddddddddd',train_dataset)
 valid_dataset = valid_dataset.batch(batch_size=config.BATCH_SIZE)
+
 # start training
 for epoch in range(config.EPOCHS):
     train_loss.reset_states()
     train_accuracy.reset_states()
     valid_loss.reset_states()
     valid_accuracy.reset_states()
-    if epoch < 6:
-        alpha = epoch * 0.2 + 0.2
-    elif epoch > 15 and accu < 0.85:
-        alpha = 0.2 + (epoch - 16 * 0.2)
-    else:
-        alpha = alpha / 5
-    print("alpha", alpha)
+    #if epoch < 6:
+    #    alpha = epoch * 0.2 + 0.2
+    #elif epoch > 15 and accu < 0.85:
+    #    alpha = 0.2 + (epoch - 16 * 0.2)
+    #else:
+    #    alpha = alpha / 5
+    #print("alpha", alpha)
     # optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
     step = 0
     for images, labels in train_dataset:
@@ -259,9 +243,11 @@ for epoch in range(config.EPOCHS):
 '''checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
                                monitor='val_accuracy',
                                save_weights_only=False, period=1, verbose=1, save_best_only=False)'''
-model.save('resnet50')  # save trained ResNet for feature extraction
 
-features_res, predictions_res = utils.features_res(X)
+model.save('Keras_models/new_model')  # save trained ResNet for feature extraction
+
+# TO CHANGE
+# features_res, predictions_res = utils.features_res(X)
 
 detectors = Detectors(fs)
 cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
@@ -269,13 +255,14 @@ cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 feature_vector = np.array([])  # create empty arrays for features and targets
 targets = np.array([])
 
-for idx, ecg_lead in enumerate(ecg_leads):
+for idx in range(len(X)):
+    ecg_lead = X[idx]
     spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
     corr_features = tsfel.correlated_features(spectral_features)
     spectral_features.drop(corr_features, axis=1, inplace=True)
     spectral_features = spectral_features.to_numpy()    # extracting spectral features
 
-    rr_intervals = detectors.two_average_detector(ecg_lead)
+    rr_intervals = detectors.two_average_detector(ecg_lead)  # detect RR-Intervals
 
     if len(rr_intervals) == 1:
         rr_intervals = np.abs(rr_intervals)
@@ -285,7 +272,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
     rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
     rr_intervals_ms = [abs(number) for number in rr_intervals_ms]  # make rr_intervals positive
 
-    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # preprocessing
+    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # outlier-removal
     rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
     rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
@@ -298,7 +285,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
-    dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv
+    dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv-library
     dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
     dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
     dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
@@ -324,7 +311,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
         print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
 
-feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 57), 57))  # reshape fv
+feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 137), 137))  # reshape fv
 
 
 feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
