@@ -33,7 +33,7 @@ def uniform_data():
     ecg_leads_std, Label_set, extra_index = relength(ecg_leads, ecg_labels)
     print(extra_index)
 
-uniform_data()
+#uniform_data()
 
 def uniform_dataframe(save=False):
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
@@ -48,9 +48,9 @@ def uniform_dataframe(save=False):
     df = df.assign(Labels=y)
 
     if save:
-        df.to_csv('../datasets/df_uniform.csv', encoding='utf-8', index=False)
+        df.to_csv('../datasets/df_uniform_2.csv', encoding='utf-8', index=False)
     return df
-
+#uniform_dataframe(save=False)
 
 def combine_df():
     df_res_features = pd.read_csv('../datasets/res_features.csv')
@@ -69,14 +69,73 @@ def combine_df():
 
 #combine_df()
 
-def feature_extraction(ecg_leads, fs, save=False):
+def feature_extraction(save=False):
+    ecg_leads, ecg_labels, fs, ecg_names = load_references()
+    ecg_leads_std, Label_set, extra_index = relength(ecg_leads, ecg_labels)
+
     detectors = Detectors(fs)
 
     feature_vector = np.array([])
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 
-    for i in range(len(ecg_leads)):
-        ecg_lead = ecg_leads[i]
+    ecg_labels_std = []
+    ecg_leads_extra = []
+    ecg_labels_extra = []
+    extra_index = []
+
+    n=len(ecg_leads)
+    index_plus = n - 1
+    for index in range(len(ecg_labels)):
+        if ecg_labels[index] == 'N':
+            ecg_labels_std.append(0)
+        elif ecg_labels[index] == 'A':
+            ecg_labels_std.append(1)
+        elif ecg_labels[index] == 'O':
+            ecg_labels_std.append(2)
+        elif ecg_labels[index] == '~':
+            ecg_labels_std.append(3)
+
+        if len(ecg_leads[index]) < 9000:
+            lowiter = 9000 // len(ecg_leads[index])
+            print(lowiter)
+            for i in range(lowiter):
+                print(ecg_leads[index].shape)
+                ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
+                print('dadadad', ecg_leads[index].shape)
+            ecg_leads[index] = ecg_leads[index][0:9000]
+            print(len(ecg_leads[index]))
+        elif len(ecg_leads[index]) > 9000:
+            extra_index_block=[]
+            if len(ecg_leads[index] <= 18000):
+                ecg_leads[index] = ecg_leads[index][0:9000]
+                extra_index_block.append(index)
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
+                ecg_labels_extra.append(ecg_labels_std[index])
+            elif len(ecg_leads[index] > 18000):
+                iter = len(ecg_leads[index]) // 9000
+                ecg_leads[index] = ecg_leads[index][:9000]
+                extra_index_block.append(index)
+                index_plus = index_plus+1
+                for i in range(1, iter):
+                    start = 9000 * i
+                    end = 9000 * (i + 1)
+                    index_plus=index_plus+1
+                    extra_index_block.append(index_plus)
+                    ecg_leads_extra.append(ecg_leads[start:end])
+                    ecg_labels_extra.append(ecg_labels_std[index])
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
+
+                ecg_labels_extra.append(ecg_labels_std[index])
+            extra_index.append(extra_index_block)
+    ecg_labels_std = ecg_labels_std + ecg_labels_extra
+    ecg_leads_std = ecg_leads + ecg_leads_extra
+
+    for i in range(len(ecg_leads_std)):
+        ecg_lead = ecg_leads_std[i]
         spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
         corr_features = tsfel.correlated_features(spectral_features)
         spectral_features.drop(corr_features, axis=1, inplace=True)
@@ -115,7 +174,6 @@ def feature_extraction(ecg_leads, fs, save=False):
         dict_entropy = hrv.get_sampen(rr_intervals_list)
         dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
 
-
         values_time = list(dict_time_domain.values())
         values_frequency = list(dict_frequency_domain.values())
         values_geometrical = list(dict_geometrical_features.values())
@@ -153,12 +211,14 @@ def feature_extraction(ecg_leads, fs, save=False):
     df = df.replace([np.inf, -np.inf], np.nan)
     column_means = df.mean()
     df = df.fillna(column_means)
+    df = df.assign(Labels=ecg_labels_std)
     if save:
-        df.to_csv('../datasets/features_uniform_length.csv', encoding='utf-8', index=False)
+        df.to_csv('../datasets/xgb_uni_length_without_SMOTE.csv', encoding='utf-8', index=False)
     feature_vector = df.to_numpy()
 
     return feature_vector, df
 
+feature_extraction(save=True)
 
 def features_res(data, save=False):
     f_list = []
@@ -300,7 +360,7 @@ def test_both(xgb, res_features, pred_resnet, X_test_xgb, y_test_xgb, both=False
 
 def train_test_res():
     print('loading dataset')
-    df_samples = pd.read_csv('../datasets/df_uniform.csv')
+    df_samples = pd.read_csv('../datasets/df_uniform_2.csv')
     print('done')
     df_res = df_samples.to_numpy()
     X_res = df_res[:, :-1]
@@ -342,11 +402,13 @@ def train_test_res():
 #xgb, features_resnet, pred_resnet, X_test_xgb, y_test_xgb = train_both()
 #test_both(xgb, features_resnet, pred_resnet, X_test_xgb, y_test_xgb, both=False)
 #print('Loading dataset')
-#df = pd.read_csv('../datasets/df_uniform.csv')
+#df = pd.read_csv('../datasets/df_uniform_2.csv')
 #print('done')
+#print(df.empty)
 #df = df.to_numpy()
 #X = df[:,:-1]
 #y = df[:,-1]
+#features, df = feature_extraction(X, fs=300, save=True)
 #features_res(X, save=True)
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 #features_res(X_train)

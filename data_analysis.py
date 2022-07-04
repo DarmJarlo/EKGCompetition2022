@@ -816,10 +816,12 @@ def tsfel_features(ecg_leads):
 
 def uniform_length(ecg_leads, ecg_labels):
     ecg_labels_std = []
-    ecg_leads_std = []
     ecg_leads_extra = []
     ecg_labels_extra = []
+    extra_index = []
 
+    n=len(ecg_leads)
+    index_plus = n - 1
     for index in range(len(ecg_labels)):
         if ecg_labels[index] == 'N':
             ecg_labels_std.append(0)
@@ -831,30 +833,41 @@ def uniform_length(ecg_leads, ecg_labels):
             ecg_labels_std.append(3)
 
         if len(ecg_leads[index]) < 9000:
-            lowiter= 9000//len(ecg_leads[index])
+            lowiter = 9000 // len(ecg_leads[index])
             print(lowiter)
             for i in range(lowiter):
                 print(ecg_leads[index].shape)
-                ecg_leads[index]=np.append(ecg_leads[index],ecg_leads[index])
-                print('dadadad',ecg_leads[index].shape)
-            ecg_leads[index]=ecg_leads[index][0:9000]
+                ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
+                print('dadadad', ecg_leads[index].shape)
+            ecg_leads[index] = ecg_leads[index][0:9000]
             print(len(ecg_leads[index]))
-        elif len(ecg_leads[index]>9000):
-            if len(ecg_leads[index]<=18000):
-                ecg_leads[index]=ecg_leads[index][0:9000]
+        elif len(ecg_leads[index]) > 9000:
+            extra_index_block=[]
+            if len(ecg_leads[index] <= 18000):
+                ecg_leads[index] = ecg_leads[index][0:9000]
+                extra_index_block.append(index)
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
                 ecg_labels_extra.append(ecg_labels_std[index])
-            elif len(ecg_leads[index]>18000):
-                iter = len(ecg_leads[index])//9000
-                ecg_leads[index]=ecg_leads[index][:9000]
-                for i in range(1,iter):
-                    start = 9000*i
-                    end = 9000*(i+1)
+            elif len(ecg_leads[index] > 18000):
+                iter = len(ecg_leads[index]) // 9000
+                ecg_leads[index] = ecg_leads[index][:9000]
+                extra_index_block.append(index)
+                index_plus = index_plus+1
+                for i in range(1, iter):
+                    start = 9000 * i
+                    end = 9000 * (i + 1)
+                    index_plus=index_plus+1
+                    extra_index_block.append(index_plus)
                     ecg_leads_extra.append(ecg_leads[start:end])
                     ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
-                ecg_labels_extra.append(ecg_labels_std[index])
+                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
 
+                ecg_labels_extra.append(ecg_labels_std[index])
+            extra_index.append(extra_index_block)
     ecg_labels_std = ecg_labels_std + ecg_labels_extra
     ecg_leads_std = ecg_leads + ecg_leads_extra
 
@@ -868,6 +881,7 @@ def uniform_length(ecg_leads, ecg_labels):
 
     df = pd.DataFrame(lst, columns=col)
     df = df.assign(Labels=ecg_labels_std)
+    #df.replace(np.nan, 0)
 
     df = df.to_numpy()
     return df

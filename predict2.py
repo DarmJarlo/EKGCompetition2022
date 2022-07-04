@@ -79,40 +79,40 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     for index in range(len(ecg_leads)):
         if len(ecg_leads[index]) < 9000:
             lowiter = 9000 // len(ecg_leads[index])
-            print(lowiter)
             for i in range(lowiter):
-                print(ecg_leads[index].shape)
                 ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
-                print('dadadad', ecg_leads[index].shape)
             ecg_leads[index] = ecg_leads[index][0:9000]
-            print(len(ecg_leads[index]))
-        elif len(ecg_leads[index] > 9000):
-            extra_index_block=[]
+        elif len(ecg_leads[index]) > 9000:
+            extra_index_block = []
             if len(ecg_leads[index] <= 18000):
                 ecg_leads[index] = ecg_leads[index][0:9000]
                 extra_index_block.append(index)
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
-                index_plus = index_plus+1
+                index_plus = index_plus + 1
                 extra_index_block.append(index_plus)
             elif len(ecg_leads[index] > 18000):
                 iter = len(ecg_leads[index]) // 9000
                 ecg_leads[index] = ecg_leads[index][:9000]
                 extra_index_block.append(index)
-                index_plus = index_plus+1
+                index_plus = index_plus + 1
                 for i in range(1, iter):
                     start = 9000 * i
                     end = 9000 * (i + 1)
-                    index_plus=index_plus+1
+                    index_plus = index_plus + 1
                     extra_index_block.append(index_plus)
                     ecg_leads_extra.append(ecg_leads[start:end])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
-                index_plus = index_plus+1
+                index_plus = index_plus + 1
                 extra_index_block.append(index_plus)
 
             extra_index.append(extra_index_block)
     ecg_leads_std = ecg_leads + ecg_leads_extra
+    ecg_leads_std = np.vstack(ecg_leads_std)
     print(extra_index)
+
+    #ecg_leads_std = ecg_leads_std[:10]
     for idx in range(len(ecg_leads_std)):
+        print(idx)
         ecg_lead = ecg_leads_std[idx]
         spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
         corr_features = tsfel.correlated_features(spectral_features)
@@ -204,7 +204,37 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     else:
         predicted_classes = xgb.predict(feature_vector)
 
-    idx_labels = np.arange(len(predicted_classes))
+    #ecg_leads = ecg_leads[:10]
+    labels = []
+    for i in range(len(ecg_leads)):
+        temp_arr = extra_index[0]
+        if i == temp_arr[0]:
+            temp = temp_arr
+            temp_pred = []
+            for j in range(len(temp)):
+                pred = predicted_classes[j]
+                temp_pred.append(pred)
+            if 1 in temp_pred:
+                labels.append(1)
+                del extra_index[0]
+                continue
+            if 3 in temp_pred:
+                labels.append(3)
+                del extra_index[0]
+                continue
+            if 0 in temp_pred:
+                labels.append(0)
+                del extra_index[0]
+                continue
+            if 2 in temp_pred:
+                labels.append(2)
+                del extra_index[0]
+                continue
+        else:
+            labels.append(predicted_classes[i])
+    labels = np.hstack(labels)
+    #idx_labels = np.arange(len(predicted_classes))
+    idx_labels = np.arange(len(labels))
     columns_labels = np.arange(1)
     df_labels = pd.DataFrame(data=predicted_classes, index=idx_labels, columns=columns_labels)
 
