@@ -65,7 +65,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
     model = tf.saved_model.load('Keras_models/new_model')
 
-    is_ensemble = True  # whether using both models as classifiers or just the xgb
+    is_ensemble = False  # whether using both models as classifiers or just the xgb
 
     feature_vector = np.array([])  # create empty arrays for features and predictions_labels later
     predictions_labels = list()  # list for final predictions
@@ -116,19 +116,19 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         spectral_features.drop(corr_features, axis=1, inplace=True)
         spectral_features = spectral_features.to_numpy()
 
-        lead = utils.leads_transfer(ecg_lead, shape=(1, 90, 100, 1))
+        lead = utils.leads_transfer(ecg_lead, shape=(1, 90, 100, 1))  # resnet-features
         prediction_res, features_res = model(lead)
         prediction_res = prediction_res.numpy()
         features_res = features_res.numpy()
 
-        features_res = features_res.reshape((32, 64))  # resnet features
+        features_res = features_res.reshape((32, 64))
         kernel = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]]
         features_res = signal.convolve2d(features_res, kernel)[::3, ::3]
         features_res = features_res.reshape(1, -1)
         features_res = pca.transform(features_res)[0, :80]  # perform PCA
         predictions_res_list.append(prediction_res)
 
-        rr_intervals = detectors.two_average_detector(ecg_lead)  # extract rr-invertals
+        rr_intervals = detectors.two_average_detector(ecg_lead)  # extract rr-intervals
         if len(rr_intervals) == 1:
             rr_intervals = np.abs(rr_intervals)
             arti_rr_1 = rr_intervals * random.random()
@@ -150,7 +150,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
-        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list) # extract features via hrv-library
+        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # extract features via hrv-library
         dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
         dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
         dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
@@ -172,6 +172,9 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         feature_vector = np.append(feature_vector, values_csicsv)
         feature_vector = np.append(feature_vector, spectral_features)
         feature_vector = np.append(feature_vector, features_res)
+
+        if (idx % 100) == 0:
+            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
     feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 137), 137))  # reshape fv
     col = np.arange(137)
@@ -204,31 +207,31 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     for i in range(len(ecg_leads)):
         if count < len(extra_index):
             temp_arr = extra_index[count]
-        if len(temp_arr) > 0:
-            if i == temp_arr[0]:
-                temp = temp_arr
-                temp_pred = []
-                for j in range(len(temp)):
-                    pred = predicted_classes[j]
-                    temp_pred.append(pred)
-                if 1 in temp_pred:
-                    labels.append(1)
-                    count += 1
-                    continue
-                if 3 in temp_pred:
-                    labels.append(3)
-                    count += 1
-                    continue
-                if 0 in temp_pred:
-                    labels.append(0)
-                    count += 1
-                    continue
-                if 2 in temp_pred:
-                    labels.append(2)
-                    count += 1
-                    continue
+        if i == temp_arr[0]:
+            temp = temp_arr
+            temp_pred = []
+            for j in range(len(temp)):
+                pred = predicted_classes[j]
+                temp_pred.append(pred)
+            if 1 in temp_pred:
+                labels.append(1)
+                count += 1
+                continue
+            if 3 in temp_pred:
+                labels.append(3)
+                count += 1
+                continue
+            if 0 in temp_pred:
+                labels.append(0)
+                count += 1
+                continue
+            if 2 in temp_pred:
+                labels.append(2)
+                count += 1
+                continue
         else:
             labels.append(predicted_classes[i])
+
     labels = np.array(labels)
     idx_labels = np.arange(len(labels))
     columns_labels = np.arange(1)
