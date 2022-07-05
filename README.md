@@ -1,3 +1,18 @@
+# Team 404 Name not found
+Teammitglieder: Ellen, Jia und Noah
+
+## Model 3: XGBoost Classifier mit ResNet Features
+Model wird als four_classes classifier trainiert. Wichtig fürs Training sind die 
+1. features.json Datei 
+2. pca.pkl 
+3. utils.py  
+4. die Ordner Keras_models und models
+da sie im gleichen Ordner liegen muss, wie die train.py und predict.py - wird für die Feature Extraction über die tsfel-library benötigt. 
+
+Für den vollständigen Download der Inhalte des trainierten ResNet50 im Keras_models-Ornder muss das Projekt mit Git Bash runtergeladen werden. 
+
+In der LICENSE-Datei ist das Copyright für das ResNet hinterlegt
+
 # TensorFlow2.0_ResNet
 A ResNet(**ResNet18, ResNet34, ResNet50, ResNet101, ResNet152**) implementation using TensorFlow-2.0
 
