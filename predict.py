@@ -189,7 +189,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
 
     feature_vector = df.to_numpy()
 
-    if is_ensemble:  # get predictions either
+    if is_ensemble:  # get predictions either as ensemble or as
         predicted_labels_xgb = xgb.predict_proba(feature_vector)
         predictions_res = np.vstack(predictions_res_list)
         temp = predicted_labels_xgb + predictions_res
@@ -204,31 +204,34 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     labels = []
     count = 0
     temp_arr = []
-    for i in range(len(ecg_leads)):
-        if count < len(extra_index):
-            temp_arr = extra_index[count]
-        if i == temp_arr[0]:
-            temp = temp_arr
-            temp_pred = []
-            for j in range(len(temp)):
-                pred = predicted_classes[j]
-                temp_pred.append(pred)
-            if 1 in temp_pred:
-                labels.append(1)
-                count += 1
-                continue
-            if 3 in temp_pred:
-                labels.append(3)
-                count += 1
-                continue
-            if 0 in temp_pred:
-                labels.append(0)
-                count += 1
-                continue
-            if 2 in temp_pred:
-                labels.append(2)
-                count += 1
-                continue
+    for i in range(len(ecg_leads)):  # combine predictions for relengthed leads
+        if len(extra_index) > 0:
+            if count < len(extra_index):
+                temp_arr = extra_index[count]
+            if i == temp_arr[0]:
+                temp = temp_arr
+                temp_pred = []
+                for j in range(len(temp)):
+                    pred = predicted_classes[j]
+                    temp_pred.append(pred)
+                if 1 in temp_pred:
+                    labels.append(1)
+                    count += 1
+                    continue
+                if 3 in temp_pred:
+                    labels.append(3)
+                    count += 1
+                    continue
+                if 0 in temp_pred:
+                    labels.append(0)
+                    count += 1
+                    continue
+                if 2 in temp_pred:
+                    labels.append(2)
+                    count += 1
+                    continue
+            else:
+                labels.append(predicted_classes[i])
         else:
             labels.append(predicted_classes[i])
 
