@@ -1,10 +1,22 @@
 # Team 404 Name not found
 Teammitglieder: Ellen, Jia und Noah
 
-## Model 2: XGBoost Classifier
+## Model 3: XGBoost Classifier mit ResNet Features
 Model wird als four_classes classifier trainiert. Wichtig fürs Training ist die features.json Datei, da sie im gleichen 
 Ordner liegen muss, wie die train.py und predict.py - wird für die Feature Extraction über die tsfel-library benötigt. 
 
+# TensorFlow2.0_ResNet
+A ResNet(**ResNet18, ResNet34, ResNet50, ResNet101, ResNet152**) implementation using TensorFlow-2.0
+
+See https://github.com/calmisential/Basic_CNNs_TensorFlow2.0 for more CNNs.
+
+## The networks I have implemented with tensorflow2.0:
++ [ResNet18, ResNet34, ResNet50, ResNet101, ResNet152](https://github.com/calmisential/TensorFlow2.0_ResNet)
++ [InceptionV3](https://github.com/calmisential/TensorFlow2.0_InceptionV3)
+
+## References
+1. The original paper: https://arxiv.org/abs/1512.03385
+2. The TensorFlow official tutorials: https://tensorflow.google.cn/beta/tutorials/quickstart/advanced
 
 ## Wichtig!
 
