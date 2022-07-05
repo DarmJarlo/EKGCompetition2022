@@ -66,7 +66,7 @@ https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalys
 
 model will be saved as 'model_4p_2.npy'
 """
-
+from __future__ import absolute_import, division, print_function
 import numpy as np
 from ecgdetectors import Detectors
 import os
@@ -80,10 +80,174 @@ import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
+import utils
+import tensorflow as tf
+from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152
+from keras.callbacks import ModelCheckpoint
+import config
+from prepare_data import generate_datasets
+import math
+import sys
+sys.path.append("..")
+from sklearn.model_selection import train_test_split
 
 ### if __name__ == '__main__':  # bei multiprocessing auf Windows notwendig
 
 ecg_leads, ecg_labels, fs, ecg_names = load_references()
+uniform_df = utils.uniform_length(ecg_leads, ecg_labels)  # make leads length 9000
+ecg_leads = uniform_df[:, :-1]
+ecg_labels = uniform_df[:, -1]
+
+X, y = utils.smote_algo(ecg_leads, ecg_labels)
+y = LabelEncoder().fit_transform(y)
+
+"""
+ResNet-Training for later Feature-Extraction
+"""
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
+Label_set = np.zeros((len(y), 4))
+
+for i in range(len(y)):
+    print('111111', i, y[i])
+    dummy = np.zeros(4)
+    dummy[int(y[i])] = 1
+    Label_set[i, :] = dummy
+
+
+# reshape input to be [samples, tensor shape (30 x 300)]
+n = 90  # 90
+m = 100  # 100
+c = 1  # number of channels
+X = utils.wavelet(X)
+
+X = np.float32(X)
+Label_set = np.float64(Label_set)
+
+X_train, X_val, y_train, y_val = train_test_split(ecg_leads, ecg_labels, test_size=0.2, random_state=42)
+X_train = np.float32(X_train)
+X_val = np.float32(X_val)
+y_train = np.float64(y_train)
+y_val = np.float64(y_val)
+
+X_train = np.reshape(X_train, (len(X_train), n, m, c))
+X_val = np.reshape(X_val, (len(X_val), n, m, c))
+image_size = (n, m, c)
+
+# create model
+model = resnet_50()
+model.build(input_shape=(None, config.image_height, config.image_width, config.channels))
+model.summary() # print the network structure
+
+# define loss and optimizer
+loss_object = tf.keras.losses.CategoricalCrossentropy()
+
+optimizer = tf.keras.optimizers.Adagrad(
+    learning_rate=0.001,
+    initial_accumulator_value=0.1,
+    epsilon=1e-07,
+    name="Adagrad"
+)
+
+train_loss = tf.keras.metrics.Mean(name='train_loss')
+train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
+
+valid_loss = tf.keras.metrics.Mean(name='valid_loss')
+valid_accuracy = tf.keras.metrics.CategoricalAccuracy(name='valid_accuracy')
+
+@tf.function
+def train_step(images, labels, epoch):
+    with tf.GradientTape() as tape:
+        predictions, feature4_pooled = model(images, training=True)  # dont forget here we are inputing a whole batch
+        print('oooooooooooo', epoch, feature4_pooled)
+        print(predictions)
+
+        loss = loss_object(y_true=labels, y_pred=predictions)
+    gradients = tape.gradient(loss, model.trainable_variables)
+
+    optimizer.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
+
+    train_loss(loss)
+    train_accuracy(labels, predictions)
+    return gradients
+
+
+@tf.function
+def valid_step(images, labels):
+    predictions, feature4_pooled = model(images, training=False)
+    v_loss = loss_object(labels, predictions)
+
+    valid_loss(v_loss)
+    valid_accuracy(labels, predictions)
+
+
+X_train = tf.data.Dataset.from_tensor_slices(X_train)
+Y_train = tf.data.Dataset.from_tensor_slices(y_train)
+X_val = tf.data.Dataset.from_tensor_slices(X_val)
+Y_val = tf.data.Dataset.from_tensor_slices(y_val)
+train_dataset = tf.data.Dataset.zip((X_train, Y_train))
+valid_dataset = tf.data.Dataset.zip((X_val, Y_val))
+
+train_count = len(train_dataset)
+print("traincount", np.array(train_count).shape)
+
+train_dataset = train_dataset.shuffle(buffer_size=train_count).batch(batch_size=config.BATCH_SIZE)
+valid_dataset = valid_dataset.batch(batch_size=config.BATCH_SIZE)
+
+# start training
+for epoch in range(config.EPOCHS):
+    train_loss.reset_states()
+    train_accuracy.reset_states()
+    valid_loss.reset_states()
+    valid_accuracy.reset_states()
+    #if epoch < 6:
+    #    alpha = epoch * 0.2 + 0.2
+    #elif epoch > 15 and accu < 0.85:
+    #    alpha = 0.2 + (epoch - 16 * 0.2)
+    #else:
+    #    alpha = alpha / 5
+    #print("alpha", alpha)
+    # optimizer_1 = tf.keras.optimizers.Adam(learning_rate=alpha)
+    step = 0
+    for images, labels in train_dataset:
+        # print("images",images.shape,labels.shape)
+        step += 1
+        # gradients=train_step(images, labels)
+        train_step(images, labels, epoch)
+        print("Epoch: {}/{}, step: {}/{}, loss: {:.5f}, accuracy: {:.5f}".format(epoch + 1,
+                                                                                 config.EPOCHS,
+                                                                                 step,
+                                                                                 math.ceil(
+                                                                                     train_count / config.BATCH_SIZE),
+                                                                                 train_loss.result(),
+                                                                                 train_accuracy.result()))
+        # print(gradients)
+
+    for valid_images, valid_labels in valid_dataset:
+        valid_step(valid_images, valid_labels)
+
+    print("Epoch: {}/{}, train loss: {:.5f}, train accuracy: {:.5f}, "
+          "valid loss: {:.5f}, valid accuracy: {:.5f}".format(epoch + 1,
+                                                              config.EPOCHS,
+                                                              train_loss.result(),
+                                                              train_accuracy.result(),
+                                                              valid_loss.result(),
+                                                              valid_accuracy.result()))
+
+    # dont forget to add valid dataset back to train set
+    accu = valid_accuracy.result()
+'''checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
+                               monitor='val_accuracy',
+                               save_weights_only=False, period=1, verbose=1, save_best_only=False)'''
+
+model.save('Keras_models/new_model')  # save trained ResNet for feature extraction
+
+# TO CHANGE
+# features_res, predictions_res = utils.features_res(X)
 
 detectors = Detectors(fs)
 cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
@@ -91,13 +255,14 @@ cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
 feature_vector = np.array([])  # create empty arrays for features and targets
 targets = np.array([])
 
-for idx, ecg_lead in enumerate(ecg_leads):
+for idx in range(len(X)):
+    ecg_lead = X[idx]
     spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
     corr_features = tsfel.correlated_features(spectral_features)
     spectral_features.drop(corr_features, axis=1, inplace=True)
-    spectral_features = spectral_features.to_numpy()
+    spectral_features = spectral_features.to_numpy()    # extracting spectral features
 
-    rr_intervals = detectors.two_average_detector(ecg_lead)
+    rr_intervals = detectors.two_average_detector(ecg_lead)  # detect RR-Intervals
 
     if len(rr_intervals) == 1:
         rr_intervals = np.abs(rr_intervals)
@@ -107,7 +272,7 @@ for idx, ecg_lead in enumerate(ecg_leads):
     rr_intervals_ms = np.diff(rr_intervals) / fs * 1000  # Umwandlung in ms
     rr_intervals_ms = [abs(number) for number in rr_intervals_ms]  # make rr_intervals positive
 
-    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # preprocessing
+    rr_without_outliers = remove_outliers(rr_intervals_ms, low_rri=300, high_rri=2000)  # outlier-removal
     rr_intervals_list = interpolate_nan_values(rr_without_outliers, interpolation_method='linear')
 
     rr_intervals_list = [x for x in rr_intervals_list if str(x) != 'nan']  # remove nan values
@@ -120,82 +285,33 @@ for idx, ecg_lead in enumerate(ecg_leads):
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
         rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
-    dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv
+    dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # feature extraction via hrv-library
     dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
     dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
     dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
     dict_entropy = hrv.get_sampen(rr_intervals_list)
     dict_frequency_domain = hrv.get_frequency_domain_features(rr_intervals_list)
 
-    if ecg_labels[idx] == 'N':
-        values_time = list(dict_time_domain.values())
-        values_frequency = list(dict_frequency_domain.values())
-        values_geometrical = list(dict_geometrical_features.values())
-        values_pointcare = list(dict_pointcare.values())
-        values_entropy = list(dict_entropy.values())
-        values_csicsv = list(dict_csi_csv.values())
-        targets = np.append(targets, 0)             # saves 'N' as 0
+    values_time = list(dict_time_domain.values())
+    values_frequency = list(dict_frequency_domain.values())
+    values_geometrical = list(dict_geometrical_features.values())
+    values_pointcare = list(dict_pointcare.values())
+    values_entropy = list(dict_entropy.values())
+    values_csicsv = list(dict_csi_csv.values())
 
-        feature_vector = np.append(feature_vector, values_time)
-        feature_vector = np.append(feature_vector, values_frequency)
-        feature_vector = np.append(feature_vector, values_geometrical)
-        feature_vector = np.append(feature_vector, values_pointcare)
-        feature_vector = np.append(feature_vector, values_entropy)
-        feature_vector = np.append(feature_vector, values_csicsv)
-        feature_vector = np.append(feature_vector, spectral_features)
-    if ecg_labels[idx] == 'A':
-        values_time = list(dict_time_domain.values())
-        values_frequency = list(dict_frequency_domain.values())
-        values_geometrical = list(dict_geometrical_features.values())
-        values_pointcare = list(dict_pointcare.values())
-        values_entropy = list(dict_entropy.values())
-        values_csicsv = list(dict_csi_csv.values())
-        targets = np.append(targets, 1)             # saves 'A' as 1
+    feature_vector = np.append(feature_vector, values_time)
+    feature_vector = np.append(feature_vector, values_frequency)
+    feature_vector = np.append(feature_vector, values_geometrical)
+    feature_vector = np.append(feature_vector, values_pointcare)
+    feature_vector = np.append(feature_vector, values_entropy)
+    feature_vector = np.append(feature_vector, values_csicsv)
+    feature_vector = np.append(feature_vector, spectral_features)
 
-        feature_vector = np.append(feature_vector, values_time)
-        feature_vector = np.append(feature_vector, values_frequency)
-        feature_vector = np.append(feature_vector, values_geometrical)
-        feature_vector = np.append(feature_vector, values_pointcare)
-        feature_vector = np.append(feature_vector, values_entropy)
-        feature_vector = np.append(feature_vector, values_csicsv)
-        feature_vector = np.append(feature_vector, spectral_features)
-    if ecg_labels[idx] == 'O':
-        values_time = list(dict_time_domain.values())
-        values_frequency = list(dict_frequency_domain.values())
-        values_geometrical = list(dict_geometrical_features.values())
-        values_pointcare = list(dict_pointcare.values())
-        values_entropy = list(dict_entropy.values())
-        values_csicsv = list(dict_csi_csv.values())
-        targets = np.append(targets, 2)             # saves 'O' as 2
-
-        feature_vector = np.append(feature_vector, values_time)
-        feature_vector = np.append(feature_vector, values_frequency)
-        feature_vector = np.append(feature_vector, values_geometrical)
-        feature_vector = np.append(feature_vector, values_pointcare)
-        feature_vector = np.append(feature_vector, values_entropy)
-        feature_vector = np.append(feature_vector, values_csicsv)
-        feature_vector = np.append(feature_vector, spectral_features)
-    if ecg_labels[idx] == '~':
-        values_time = list(dict_time_domain.values())
-        values_frequency = list(dict_frequency_domain.values())
-        values_geometrical = list(dict_geometrical_features.values())
-        values_pointcare = list(dict_pointcare.values())
-        values_entropy = list(dict_entropy.values())
-        values_csicsv = list(dict_csi_csv.values())
-        targets = np.append(targets, 3)             # saves '~' as 3
-
-        feature_vector = np.append(feature_vector, values_time)
-        feature_vector = np.append(feature_vector, values_frequency)
-        feature_vector = np.append(feature_vector, values_geometrical)
-        feature_vector = np.append(feature_vector, values_pointcare)
-        feature_vector = np.append(feature_vector, values_entropy)
-        feature_vector = np.append(feature_vector, values_csicsv)
-        feature_vector = np.append(feature_vector, spectral_features)
     if (idx % 100) == 0:
         print(str(idx) + "\t EKG Signale wurden verarbeitet.")
 
 
-feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 57), 57))  # reshape fv
+feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 137), 137))  # reshape fv
 
 
 feature_names = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
@@ -217,26 +333,24 @@ df = df.replace([np.inf, -np.inf], np.nan)   # Replace other invalid values
 column_means = df.mean()
 df = df.fillna(column_means)
 
-df = df.assign(Labels=targets)
+df = df.assign(Labels=ecg_labels)
 
-df = df.to_numpy()
-X = df[:, :-1]
-y = df[:, -1]
+features_xgb = df.to_numpy()
+labels_xgb = y
+#features_xgb = df[:, :-1]
+#labels_xgb = df[:, -1]
 
-y = LabelEncoder().fit_transform(y)
-sm = SMOTE(random_state=42)     # handle class_imbalance using oversampling via SMOTE
-X, y = sm.fit_resample(X, y)
+
 
 xgb = XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6, min_child_weight=0, gamma=0,
                           subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
                           nthread=4, scale_pos_weight=1, seed=42)
-xgb.fit(X, y)                # fit XGBoost Classifier
+xgb.fit(features_xgb, labels_xgb)                # fit XGBoost Classifier
 
 
-
-if os.path.exists("model_4p_2.npy"):
-    os.remove("model_4p_2.npy")
-with open('model_4p_2.npy', 'wb') as f:
+if os.path.exists("model_4p_3.npy"):
+    os.remove("model_4p_3.npy")
+with open('model_4p_3.npy', 'wb') as f:
     pickle.dump(xgb, f)          # save model
 
 print('Training is done')

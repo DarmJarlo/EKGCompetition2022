@@ -1,0 +1,229 @@
+"""
+Implementing a machine learning algorithm with extracted features of data_analysis
+"""
+
+import numpy as np
+import data_analysis as analysis
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import metrics
+from wettbewerb import load_references
+import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.model_selection import GridSearchCV
+from xgboost import XGBClassifier
+import os
+import pickle
+
+ecg_leads, ecg_labels, fs, ecg_names = load_references()
+
+
+def time_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+    features_time_domain = analysis.feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem, nn_intervals)
+    X = features_time_domain[:,:-1]
+    y = features_time_domain[:,-1:]
+
+    #Source: https://stackoverflow.com/questions/18689235/numpy-array-replace-nan-values-with-average-of-columns
+    indices = np.where(np.isnan(X))  # returns an array of rows and column indices
+    for row, col in zip(*indices):
+        X[row, col] = np.mean(X[~np.isnan(X[:, col]), col])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+    rf = RandomForestRegressor(n_estimators=150)
+    rf.fit(X_train, y_train)
+    feature_names_td = ['mean_nni', 'sdnn', 'sdsd', 'rmssd', 'median_nni', 'nni_50', 'pnni_50', 'nni_20', 'pnni_20',
+                    'range_nni', 'cvsd', 'cvnni', 'mean_hr', 'max_hr', 'min_hr', 'std_hr']
+
+    sort = rf.feature_importances_.argsort()
+    feature_names_td = [x for _,x in sorted(zip(sort, feature_names_td))]
+    rf_features = rf.feature_importances_[sort]
+    plt.barh(feature_names_td, rf_features)
+    plt.xlabel('Feature Importance')
+    plt.show()
+
+
+def frequency_domain(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+    features_frequency_domain = analysis.feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem, nn_intervals)
+    X = features_frequency_domain[:,:-1]
+    y = features_frequency_domain[:,-1:]
+
+    indices = np.where(np.isnan(X))  # returns an array of rows and column indices
+    for row, col in zip(*indices):
+        X[row, col] = np.mean(X[~np.isnan(X[:, col]), col])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+    rf = RandomForestRegressor(n_estimators=150)
+    rf.fit(X_train, y_train)
+    feature_names_fd = ['total_power', 'vlf', 'lf', 'hf', 'lf_hf_ratio', 'lfnu', 'hfnu']
+
+    sort = rf.feature_importances_.argsort()
+    feature_names_fd = [x for _,x in sorted(zip(sort, feature_names_fd))]
+    rf_features = rf.feature_importances_[sort]
+    plt.barh(feature_names_fd, rf_features)
+    plt.xlabel('Feature Importance')
+    plt.show()
+
+
+def features_of_both(ecg_leads, ecg_labels, fs, four_problem=False, nn_intervals=False):
+    features_time_domain = analysis.feature_extraction_time_domain(ecg_leads, ecg_labels, fs, four_problem,
+                                                                   nn_intervals)
+    X_td = features_time_domain[:, :-1]
+    y = features_time_domain[:, -1:]
+
+    features_frequency_domain = analysis.feature_extraction_frequency_domain(ecg_leads, ecg_labels, fs, four_problem,
+                                                                             nn_intervals)
+    X_fd = features_frequency_domain[:, :-1]
+    X = np.concatenate((X_td, X_fd), axis=1)
+
+    indices = np.where(np.isnan(X))  # returns an array of rows and column indices
+    for row, col in zip(*indices):
+        X[row, col] = np.mean(X[~np.isnan(X[:, col]), col])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+    rf = RandomForestClassifier(n_estimators=150, n_jobs=-1)
+    rf.fit(X_train, y_train)
+    return rf, X_test, y_test
+
+
+def feature_training():
+    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    #df = pd.read_csv('features_synth.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    rf = RandomForestClassifier(n_estimators=1500, bootstrap=False, max_features=10, n_jobs=-1)
+    rf.fit(X_train, y_train)
+    return rf, X_test, y_test
+
+
+def tuning():
+    forest = RandomForestClassifier(n_jobs=-1)
+    df = pd.read_csv('../datasets/two_average_filtered_synth_extended.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    #forest.fit(X_train, y_train)
+    param_grid = [
+        {'n_estimators': [1000, 1500], 'max_features': [8, 10, 12], 'bootstrap': [True, False]}
+    ]
+    grid_search_forest = GridSearchCV(forest, param_grid, cv=10, scoring='f1_macro')
+    grid_search_forest.fit(X_train, y_train)
+    print(grid_search_forest.best_estimator_)
+
+
+def xgb():
+    df = pd.read_csv('../datasets/features_combined.csv')
+    df = df.to_numpy()
+    X = df[:, :-1]
+    y = df[:, -1]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    param_test1 = {
+        'max_depth': range(5, 12, 2),
+        'min_child_weight': range(1, 6, 2)
+    }
+    # results: 0.9066260995777382
+    # {'max_depth': 7, 'min_child_weight': 1}
+    # new results with more features 0.9914982386491253
+    # {'max_depth': 5, 'min_child_weight': 1}
+
+    param_test2 = {
+        'max_depth': [4,5,6],
+        'min_child_weight': [0,1,2]
+    }
+    # results: 0.9070665614482687
+    # {'max_depth': 6, 'min_child_weight': 0}
+
+    # 0.9918207384963065
+    # {'max_depth': 6, 'min_child_weight': 0}
+
+    # TO DO
+    param_test3 = {
+        'gamma': [i / 10.0 for i in range(0, 5)]
+    }
+    # results: 0.9070665614482687
+    # {'gamma': 0.0}
+    # 0.9918207384963065
+    # {'gamma': 0.0}
+
+    param_test4 = {
+        'subsample': [i / 10.0 for i in range(6, 10)],
+        'colsample_bytree': [i / 10.0 for i in range(6, 10)]
+    }
+    # results: 0.9098046267165903
+    # {'colsample_bytree': 0.6, 'subsample': 0.7}
+    # 0.9917730832449966
+    # {'colsample_bytree': 0.6, 'subsample': 0.8}
+
+
+    param_test5 = {
+        'subsample': [i / 100.0 for i in range(55, 70, 5)],
+        'colsample_bytree': [i / 100.0 for i in range(65, 80, 5)]
+    }
+    # results: 0.9100325601020567
+    # {'colsample_bytree': 0.75, 'subsample': 0.55}
+
+    param_test6 = {
+        'reg_alpha': [1e-5, 1e-2, 0.1, 1, 100]
+    }
+    # results: 0.9098502004296225
+    # {'reg_alpha': 1e-05}
+
+
+
+
+    #gsearch1 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=1000, max_depth=6,
+    #                                                min_child_weight=0, gamma=0, subsample=0.55, colsample_bytree=0.75,
+    #                                                objective='multi:softmax', nthread=4, scale_pos_weight=1,
+    #                                                seed=42),
+    #                        param_grid=param_test4, scoring='f1_macro', n_jobs=4, cv=5)
+    #gsearch1.fit(X_train, y_train)
+    #print(gsearch1.best_score_)
+    #print(gsearch1.best_params_)
+    model = XGBClassifier(learning_rate=0.1, n_estimators=1500, max_depth=6, min_child_weight=0, gamma=0,
+                          subsample=0.55, colsample_bytree=0.75, bjective='multi:softmax',
+                          nthread=4, scale_pos_weight=1, seed=42)
+    model.fit(X_train, y_train)
+
+    if os.path.exists("model_4p_3.npy"):
+        os.remove("model_4p_3.npy")
+    with open('model_4p_3.npy', 'wb') as f:
+        pickle.dump(model, f)  # save model
+
+    print('Training is done')
+
+
+    #return model, X_test, y_test
+
+xgb()
+#tuning()
+#trained_rf, X_test, y_test = feature_training() # Random Forest
+#y_pred = trained_rf.predict(X_test)
+
+#trained_xgb, X_test, y_test = xgb()  # XGBoosting
+#y_pred = trained_xgb.predict(X_test)
+#print(y_pred)
+#print('Accuracy:', metrics.accuracy_score(y_test, y_pred))
+#print('Precision:', metrics.precision_score(y_test, y_pred, average=None)) #)) #, average=None))
+#print('Recall:', metrics.recall_score(y_test, y_pred, average=None)) #)) #, average=None))
+#print('F1:', metrics.f1_score(y_test, y_pred, average=None)) #)) #, average=None))
+
+#sort = trained_rf.feature_importances_.argsort()
+#feature_names = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5', 'Feature 6', 'Feature 7', 'Feature 8',
+#                 'Feature 9', 'Feature 10', 'Feature 11', 'Feature 12', 'Feature 13', 'Feature 14', 'Feature 15',
+#                 'Feature 16', 'Feature 17', 'Feature 18', 'Feature 19', 'Feature 20', 'Feature 21', 'Feature 22',
+#                 'Feature 23', 'Feature 24', 'Feature 25', 'Feature 26', 'Feature 27', 'Feature 28', 'Feature 29',
+#                 'Feature 30', 'Feature 31', 'Feature 32']
+#feature_names = [x for _, x in sorted(zip(sort, feature_names))]
+#rf_features = trained_rf.feature_importances_[sort]
+#plt.figure(figsize=(8,6))
+#plt.barh(feature_names, rf_features)
+#plt.xlabel('Feature Importance')
+#plt.show()
