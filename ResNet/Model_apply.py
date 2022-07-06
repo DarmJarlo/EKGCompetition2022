@@ -46,7 +46,7 @@ if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
     #compare_plot(ecg_leads[1217], ecg_leads[1495])
     first = 5300
-    end = 5400
+    end = 5350
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
     predictions = []
     print('index',extra_index,len(ecg_leads[0]))
@@ -57,13 +57,13 @@ if __name__ == '__main__':
     test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
     last_accuracy = 1
     y_pred = []
-    first = 5300
-    end =5400
+    label_int =[]
     for index in range(first,end):
         lead = leads_transfer(leads[index-first], (1, 9000, 1), labels[index-first])
         feature1,feature2,feature3,feature4, prediction,feature4_p = res_feature(lead)
         prediction = prediction.numpy()
         label_predi=np.argmax(prediction)
+        label_int.append(np.argmax(labels[index-first]))
         y_pred.append(label_predi)
         print(index,prediction)
         #feature4 = feature4.numpy()
@@ -78,18 +78,21 @@ if __name__ == '__main__':
         if test_accuracy.result() < last_accuracy:
             false_index.append(index)
             false_length.append(len(ecg_leads[index]))
-            false_pred.append([prediction,labels[index-first]])
+            false_pred.append([label_predi,ecg_labels[index]])
 
         last_accuracy = test_accuracy.result()
 
-        print(feature4_p.shape)
-
-
+        #print(feature4_p.shape)
+        #labels=np.array(labels)
+        #y_pred = np.array(y_pred)
+        print(label_int)
+        print(y_pred)
         print("Epoch: {},  accuracy: {:.5f}".format(index, test_accuracy.result()))
-    print('Accuracy:', metrics.accuracy_score(labels, y_pred))
-    print('Precision:', metrics.precision_score(labels, y_pred, average=None))
-    print('Recall:', metrics.recall_score(labels, y_pred, average=None))
-    print('F1:', metrics.f1_score(labels, y_pred, average=None))
+    print('Accuracy:', metrics.accuracy_score(label_int, y_pred))
+    print('Precision:', metrics.precision_score(label_int, y_pred, average=None))
+    print('Recall:', metrics.recall_score(label_int, y_pred, average=None))
+    print('F1:', metrics.f1_score(label_int,y_pred, average=None))
     print('false_index',false_index)
     print('false_length', false_length)
     print('false_pred:[pred,true_value]',false_pred)
+
