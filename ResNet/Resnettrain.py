@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 import tensorflow as tf
-from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152,resnet_mini
+from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152,resnet_mini,resnet_50_1d
 from keras.callbacks import ModelCheckpoint
 import config
 from prepare_data import generate_datasets
@@ -14,18 +14,22 @@ from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth
 #ResNet part code  are adopted from https://github.com/calmisential/TensorFlow2.0_ResNet
 def get_model():
     #model = ResNet50(input_shape=(20,45,1))
-    model = resnet_50()
-    if config.model == "resnet18":
-        model = resnet_18()
-    if config.model == "resnet34":
-        model = resnet_34()
-    if config.model == "resnet101":
-        model = resnet_101()
-    if config.model == "resnet152":
-        model = resnet_152()
-    if config.model == "resnetmini":
-        model = resnet_mini()
-    model.build(input_shape=(None, config.image_height, config.image_width, config.channels))
+    if config.Oned != True:
+        model = resnet_50()
+        if config.model == "resnet18":
+            model = resnet_18()
+        if config.model == "resnet34":
+            model = resnet_34()
+        if config.model == "resnet101":
+            model = resnet_101()
+        if config.model == "resnet152":
+            model = resnet_152()
+        if config.model == "resnetmini":
+            model = resnet_mini()
+        model.build(input_shape=(None, config.image_height, config.image_width, config.channels))
+    else:
+        model = resnet_50_1d()
+        model.build(input_shape=(None, 9000,1))
     model.summary()# print the network structure
     return model
 
@@ -68,7 +72,7 @@ if __name__ == '__main__':
                 print('dadadad',ecg_leads[index].shape)
             ecg_leads[index]=ecg_leads[index][0:9000]
             print(len(ecg_leads[index]))
-        elif len(ecg_leads[index]>9000):
+        elif len(ecg_leads[index])>9000:
             if len(ecg_leads[index]<=18000):
                 ecg_leads[index]=ecg_leads[index][0:9000]
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
@@ -104,25 +108,31 @@ if __name__ == '__main__':
     mats = len(ecg_leads_std)
 
     X = ecg_leads_std
-    X= wavelet(X)
-    X=butterworth(X)
+    #X= wavelet(X)
+    #X=butterworth(X)
     X= np.float32(X)
     Label_set = np.float64(Label_set)
     train_len = 0.8 # Choice of training size
     var = int(train_len * (mats))
     X_train = X[:var]
     Y_train = Label_set[:var]
-    print(Y_train)
+    print('tttttttttttttttt',Y_train)
     X_val = X[var:]
     Y_val = Label_set[var:]
     # reshape input to be [samples, tensor shape (30 x 300)]
-    n = 90
-    m = 100
-    c = 1  # number of channels
+    if config.Oned != True:
 
-    X_train = np.reshape(X_train, (X_train.shape[0], n, m, c))
-    X_val = np.reshape(X_val, (X_val.shape[0], n, m, c))
-    image_size = (n, m, c)
+        n = 90
+        m = 100
+        c = 1  # number of channels
+
+        X_train = np.reshape(X_train, (X_train.shape[0], n, m, c))
+        X_val = np.reshape(X_val, (X_val.shape[0], n, m, c))
+        image_size = (n, m, c)
+    else:
+        X_train = np.reshape(X_train, (X_train.shape[0], 9000,1))
+        X_val = np.reshape(X_val, (X_val.shape[0], 9000,1))
+        image_size = (9000,1)
 
     # create model
     model = get_model()

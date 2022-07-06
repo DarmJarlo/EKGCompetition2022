@@ -130,7 +130,7 @@ class Own_BottleNeck(tf.keras.layers.Layer):
 
 class OneD_BottleNeck(tf.keras.layers.Layer):
     def __init__(self, filter_num, stride=1):
-        super(Own_BottleNeck, self).__init__()
+        super(OneD_BottleNeck, self).__init__()
         self.conv1 = tf.keras.layers.Conv1D(filters=filter_num,
                                             kernel_size=1,
                                             strides=1,
@@ -190,11 +190,11 @@ def make_basic_block_layer(filter_num, blocks, stride=1):
 def make_bottleneck_layer(filter_num, blocks, stride=1):
     res_block = tf.keras.Sequential()
     #res_block.add(BottleNeck(filter_num, stride=stride))
-    #res_block.add(OneD_BottleNeck(filter_num, stride=stride))
-    res_block.add(Own_BottleNeck(filter_num, stride=stride))
+    res_block.add(OneD_BottleNeck(filter_num, stride=stride))
+    #res_block.add(Own_BottleNeck(filter_num, stride=stride))
     for _ in range(1, blocks):
-        res_block.add(Own_BottleNeck(filter_num, stride=stride))
+        #res_block.add(Own_BottleNeck(filter_num, stride=stride))
         #res_block.add(BottleNeck(filter_num, stride=stride))
 
-        # res_block.add(ONeD_BottleNeck(filter_num, stride=stride))
+         res_block.add(OneD_BottleNeck(filter_num, stride=stride))
     return res_block

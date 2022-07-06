@@ -135,6 +135,9 @@ def predict_labels(ecg_leads : List[np.ndarray], fs : float, ecg_names : List[st
     for i in range(len(predicted_classes)):     # create prediction tuple
         predictions.append((ecg_names[i], predicted_classes[i][0]))
 
+    for combine_predictions in extra_index:
+        predict = predictions[combine_predictions]
+        #if a predict has a 1,2,3 then it's 1 2 3 if it's all 0 then it's 0
 
 #------------------------------------------------------------------------------    
     return predictions # Liste von Tupels im Format (ecg_name,label) - Muss unverändert bleiben!

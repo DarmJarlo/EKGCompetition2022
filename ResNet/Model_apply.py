@@ -6,9 +6,11 @@ from keras import Model
 import sys
 sys.path.append("..")
 import numpy as np
+
+import matplotlib.pyplot as plt
 from wettbewerb import load_references
 from tensorflow.keras.applications import ResNet50
-from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth,relength,feature_plot, PCA_single_reduce
+from Denoise import wavelet, compare_plot, normalize,median_filter, butterworth,relength,feature_plot, PCA_single_reduce,Locate_R
 import config
 from models.resnet import resnet_18, resnet_34, resnet_50, resnet_101, resnet_152
 from wettbewerb import load_references
@@ -63,8 +65,14 @@ def res_feature(data):
 
 if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
+    #for i in range(len(ecg_leads)):
+     #   r_peaks = Locate_R(ecg_leads[i],sampling_rate=300)
+      #  print(r_peaks)
+    compare_plot(ecg_leads[1193], ecg_leads[505])
+
     leads, labels ,extra_index = relength(ecg_leads, ecg_labels)
     predictions = []
+    print('index',extra_index,len(ecg_leads[0]))
 
     '''for i in range(len(labels)):
         print('2222', i, labels[i])
@@ -79,7 +87,7 @@ if __name__ == '__main__':
 
     test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
 
-    for index in range(5200,5300):
+    for index in range(5300,5301):
         lead = leads_transfer(leads[index], (1, 90, 100, 1), labels[index])
         feature1,feature2,feature3,feature4, prediction,feature4_pooled = res_feature(lead)
         prediction = prediction.numpy()

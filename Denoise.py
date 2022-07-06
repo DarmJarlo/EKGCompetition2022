@@ -7,10 +7,12 @@ from scipy import signal
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import LabelEncoder
 from sklearn.decomposition import PCA
-
+from biosppy.signals.ecg import christov_segmenter
+import neurokit2 as nk
 import os
 ##https://blog.csdn.net/qq_36495569/article/details/104086636
 #https://blog.csdn.net/qq_39594939/article/details/115697198
+#https://neuropsychology.github.io/NeuroKit/examples/ecg_delineate/ecg_delineate.html
 
 def PCA_single_reduce(features):
     '''
@@ -45,7 +47,29 @@ def PCA_single_reduce(features):
 
     return index
     #return firsthalfindex
+def Locate_R(ecg,sampling_rate=300):
+    rpeaks = christov_segmenter(signal=ecg,sampling_rate=sampling_rate)
+    #_, rpeaks = nk.ecg_peaks(ecg, sampling_rate=300)
+    #_, waves_peak = nk.ecg_delineate(ecg_data, rpeaks, sampling_rate=300, method="peak")
+    #plot = nk.events_plot(waves_peak['ECG_S_Peaks'][:3])
+    print(rpeaks)
 
+    # Preprocess ECG signal
+    #signals, info = nk.ecg_process(ecg, sampling_rate=300)
+
+    # Visualize
+    #nk.ecg_plot(signals)
+    dex= []
+    #for index in range(len(ecg)):
+    #    if signals["ECG_R_Peaks"][index] == 1:
+    #        dex.append(index)
+    #for index in range(len(ecg)):
+     #  if rpeaks['ECG_R_Peaks'][index] == 1:
+      #     dex.append(index)
+        # if we cannot find the peak by this approach ,we may do the gradient search
+        # in 1 2 3 4 order or in 5 4 3 2 1 order to find the first peak and the last peak
+    #return rpeaks['ECG_R_Peaks']
+    return rpeaks[0]
 def relength(ecg_leads,ecg_labels):
     '''make the labels as one hot and make the leads the same length with 9000'''
     ecg_labels_std = []
@@ -66,15 +90,21 @@ def relength(ecg_leads,ecg_labels):
             ecg_labels_std.append(3)
 
         if len(ecg_leads[index]) < 9000:
+            print('iiiiiiiiii')
+            Rpeak = Locate_R(ecg_leads[index])
+            print('qqqqqqqqqqqqq',len(Rpeak),index)
+            ecg_leads[index]=ecg_leads[index][Rpeak[0]:Rpeak[-1]]
+            print("rpeaks",Rpeak[0],Rpeak[-1],len(ecg_leads[index]))
             lowiter = 9000 // len(ecg_leads[index])
             print(lowiter)
+            ecg_temp=ecg_leads[index]
             for i in range(lowiter):
                 print(ecg_leads[index].shape)
-                ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
+                ecg_temp = np.append(ecg_temp, ecg_leads[index])
                 print('dadadad', ecg_leads[index].shape)
-            ecg_leads[index] = ecg_leads[index][0:9000]
-            print(len(ecg_leads[index]))
-        elif len(ecg_leads[index] > 9000):
+            ecg_leads[index] = ecg_temp[0:9000]
+            print('..................',index,len(ecg_leads[index]))
+        elif len(ecg_leads[index]) > 9000:
             extra_index_block=[]
             if len(ecg_leads[index] <= 18000):
                 ecg_leads[index] = ecg_leads[index][0:9000]
@@ -148,11 +178,12 @@ def median_filter(data):
 
     for i in range(len(data)):
         data1 = normalize(data[i])
-        data2 = medfilt(data1,3)
-        data3 = medfilt(data2,5)
-        data_de= data1-data3
+
+        data3 = medfilt(data1,3)
+
         data_denoise.append(data3)
     return data_denoise
+#def s_peak_medianfilter(data,s_peak):
 
 
 def butterworth(data):
@@ -172,12 +203,12 @@ def compare_plot(data,datarec):
     maxtime = mintime + len(data) + 1
     plt.figure()
     plt.subplot(2, 1, 1)
-    plt.plot(data[300:800])
+    plt.plot(data[0:1500])
     #plt.xlabel(‘time(s)’)
 
     plt.title("Raw signal")
     plt.subplot(2, 1, 2)
-    plt.plot(datarec[300:800])
+    plt.plot(datarec[0:1500])
    # plt.xlabel(‘time(s)’)
 
     plt.title("wavelet")
