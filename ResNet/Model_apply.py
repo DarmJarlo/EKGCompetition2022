@@ -45,8 +45,8 @@ def res_feature(data):
 if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
     #compare_plot(ecg_leads[1217], ecg_leads[1495])
-    first = 5300
-    end = 5350
+    first = 5350
+    end = 5380
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
     predictions = []
     print('index',extra_index,len(ecg_leads[0]))
@@ -58,6 +58,9 @@ if __name__ == '__main__':
     last_accuracy = 1
     y_pred = []
     label_int =[]
+    false_index = []
+    false_length = []
+    false_pred = []
     for index in range(first,end):
         lead = leads_transfer(leads[index-first], (1, 9000, 1), labels[index-first])
         feature1,feature2,feature3,feature4, prediction,feature4_p = res_feature(lead)
@@ -71,9 +74,7 @@ if __name__ == '__main__':
         #feature2 = feature2.numpy()
         #feature1 = feature1.numpy()
         #print('feature',feature4_p.shape)
-        false_index = []
-        false_length = []
-        false_pred = []
+
         test_accuracy(labels[index-first], prediction)
         if test_accuracy.result() < last_accuracy:
             false_index.append(index)
