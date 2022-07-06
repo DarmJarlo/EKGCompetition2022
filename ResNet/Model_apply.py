@@ -68,7 +68,7 @@ if __name__ == '__main__':
     #for i in range(len(ecg_leads)):
      #   r_peaks = Locate_R(ecg_leads[i],sampling_rate=300)
       #  print(r_peaks)
-    compare_plot(ecg_leads[1193], ecg_leads[505])
+    compare_plot(ecg_leads[1217], ecg_leads[1495])
 
     leads, labels ,extra_index = relength(ecg_leads, ecg_labels)
     predictions = []

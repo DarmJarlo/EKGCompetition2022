@@ -92,18 +92,24 @@ def relength(ecg_leads,ecg_labels):
         if len(ecg_leads[index]) < 9000:
             print('iiiiiiiiii')
             Rpeak = Locate_R(ecg_leads[index])
-            print('qqqqqqqqqqqqq',len(Rpeak),index)
-            ecg_leads[index]=ecg_leads[index][Rpeak[0]:Rpeak[-1]]
-            print("rpeaks",Rpeak[0],Rpeak[-1],len(ecg_leads[index]))
-            lowiter = 9000 // len(ecg_leads[index])
-            print(lowiter)
+            if len(Rpeak)>1:
+                print('qqqqqqqqqqqqq',len(Rpeak),index)
+                ecg_leads[index]=ecg_leads[index][Rpeak[0]:Rpeak[-1]]
+                print("rpeaks",Rpeak[0],Rpeak[-1],len(ecg_leads[index]))
+                lowiter = 9000 // len(ecg_leads[index])
+                print(lowiter)
+            else:
+                lowiter = 9000 // len(ecg_leads[index])
+                print(lowiter)
+
+
             ecg_temp=ecg_leads[index]
             for i in range(lowiter):
                 print(ecg_leads[index].shape)
                 ecg_temp = np.append(ecg_temp, ecg_leads[index])
                 print('dadadad', ecg_leads[index].shape)
             ecg_leads[index] = ecg_temp[0:9000]
-            print('..................',index,len(ecg_leads[index]))
+            print('short data after relength',index,len(ecg_leads[index]))
         elif len(ecg_leads[index]) > 9000:
             extra_index_block=[]
             if len(ecg_leads[index] <= 18000):
