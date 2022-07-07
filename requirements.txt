@@ -5,8 +5,8 @@ asttokens==2.0.5
 astunparse==1.6.3
 Babel==2.10.1
 backcall==0.2.0
-bidict=0.22.0
-biosppy=0.8.0
+bidict==0.22.0
+biosppy==0.8.0
 cachetools==5.2.0
 certifi==2022.5.18.1
 charset-normalizer==2.0.12
