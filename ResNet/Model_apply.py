@@ -49,6 +49,7 @@ if __name__ == '__main__':
     first = 0
     end =  50
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
+    '''
     ind =[]
     fal =[]
     for i in range(7000):
@@ -111,4 +112,4 @@ if __name__ == '__main__':
     print('false_index',false_index)
     print('false_length', false_length)
     print('false_pred:[pred,true_value]',false_pred)
-'''
+

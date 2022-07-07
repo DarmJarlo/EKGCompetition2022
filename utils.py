@@ -24,7 +24,19 @@ from scipy.signal import medfilt
 from scipy import signal
 from sklearn.decomposition import PCA
 import tensorflow as tf
-
+import matplotlib.pyplot as plt
+import pywt
+import numpy as np
+from scipy.signal import medfilt
+from scipy import signal
+from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
+from sklearn.decomposition import PCA
+from biosppy.signals.ecg import christov_segmenter
+import neurokit2 as nk
+import os
+##https://blog.csdn.net/qq_36495569/article/details/104086636
+#https://blog.csdn.net/qq_39594939/article/details/115697198
 """
 SMOTE Algorithm to handle class imbalanace
 """
@@ -96,22 +108,6 @@ def uniform_length(ecg_leads, ecg_labels):
 
     df = df.to_numpy()
     return df
-
-
-import matplotlib.pyplot as plt
-import pywt
-import numpy as np
-from scipy.signal import medfilt
-from scipy import signal
-from imblearn.over_sampling import SMOTE
-from sklearn.preprocessing import LabelEncoder
-from sklearn.decomposition import PCA
-from biosppy.signals.ecg import christov_segmenter
-import neurokit2 as nk
-import os
-##https://blog.csdn.net/qq_36495569/article/details/104086636
-#https://blog.csdn.net/qq_39594939/article/details/115697198
-
 
 
 def Locate_R(ecg,sampling_rate=300):
