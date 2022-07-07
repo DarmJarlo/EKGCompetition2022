@@ -44,6 +44,7 @@ Für Spectral Features:
 - Spectral centroid, Spectral decrease, Spectral entropy, Spectral kurtosis, Spectral positive turning points, 
 Spectral roll-off, Spectral roll-on, Spectral skewness, Spectral spread, Spectral variation
 - Wavelet absolute mean
+
 Source: https://github.com/fraunhoferportugal/tsfel
 ## Hyperparametertuning
 Die Hyperparameter wurden nach folgendem Guide durch eine GridSearch gewählt: 
