@@ -5,9 +5,11 @@ import config
 import math
 import sys
 sys.path.append("..")
+from utils import wavelet, compare_plot, normalize,median_filter, butterworth,relength
+sys.path.append("..")
 import numpy as np
 from wettbewerb import load_references
-from utils import wavelet, compare_plot, normalize,median_filter, butterworth,relength
+
 "this file is about the resnet training"
 #ResNet part code adopted from https://github.com/calmisential/TensorFlow2.0_ResNet
 def load_model():
@@ -72,6 +74,7 @@ if __name__ == '__main__':
     Y_val = tf.data.Dataset.from_tensor_slices(Y_val)
     train_dataset = tf.data.Dataset.zip((X_train, Y_train))
     valid_dataset = tf.data.Dataset.zip((X_val, Y_val))
+
     train_count = len(train_dataset)
     print("traincount",np.array(train_count).shape)
     'batch shuffle'
@@ -170,9 +173,10 @@ if __name__ == '__main__':
 
         # dont forget to add valid dataset back to train set
         accu = valid_accuracy.result()
+        tf.saved_model.save(model, 'Keras_models/new_model')
     '''checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_accuracy:.2f}.hdf5",
                                    monitor='val_accuracy',
                                    save_weights_only=False, period=1, verbose=1, save_best_only=False)'''
-    model.save('Keras_models/new_model')
+    tf.saved_model.save(model, 'Keras_models/new_model')
     #model.save_weights(filepath=config.save_model_dir, save_format='tf')
     #tf.saved_model.save(model, config.save_model_dir)
