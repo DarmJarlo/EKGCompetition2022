@@ -128,7 +128,7 @@ def relength(ecg_leads,ecg_labels):
     ecg_leads_extra = []
     ecg_labels_extra = []
     extra_index = []
-    ecg_leads_cut = ecg_leads
+
     n=len(ecg_leads)
     index_plus = n - 1
     for index in range(len(ecg_labels)):
@@ -164,27 +164,30 @@ def relength(ecg_leads,ecg_labels):
         elif len(ecg_leads[index]) > 9000:
             extra_index_block=[]
             if len(ecg_leads[index]) < 18000:
-                ecg_leads_cut[index] = ecg_leads[index][0:9000]
+                ecg_leads_cut = ecg_leads[index][0:9000]
 
-                print('cut',index,ecg_leads_cut[index][-9000:],len(ecg_leads_cut[index][-9000:]))
+                print('cut',index,ecg_leads_cut,len(ecg_leads_cut))
                 extra_index_block.append(index)
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
                 index_plus = index_plus+1
                 extra_index_block.append(index_plus)
                 ecg_labels_extra.append(ecg_labels_std[index])
-                ecg_leads[index] = ecg_leads_cut[index]
+                ecg_leads[index] = ecg_leads_cut
             elif len(ecg_leads[index]) ==18000:
-                ecg_leads_cut[index] = ecg_leads[index][0:9000]
+                print(len(ecg_leads[index]))
+                ecg_leads_cut = ecg_leads[index][0:9000]
+                print(len(ecg_leads[index]))
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
+
                 print('extra',ecg_leads_extra)
                 index_plus = index_plus + 1
                 extra_index_block.append(index)
                 extra_index_block.append(index_plus)
                 ecg_labels_extra.append(ecg_labels_std[index])
-                ecg_leads[index] = ecg_leads_cut[index]
+                ecg_leads[index] = ecg_leads_cut
             elif len(ecg_leads[index]) > 18000:
                 iter = len(ecg_leads[index]) // 9000
-                ecg_leads_cut[index] = ecg_leads[index][:9000]
+                ecg_leads_cut= ecg_leads[index][:9000]
                 extra_index_block.append(index)
 
                 for i in range(1, iter):
@@ -199,7 +202,7 @@ def relength(ecg_leads,ecg_labels):
 
                 index_plus = index_plus+1
                 extra_index_block.append(index_plus)
-                ecg_leads[index] = ecg_leads_cut[index]
+                ecg_leads[index] = ecg_leads_cut
 
                 ecg_labels_extra.append(ecg_labels_std[index])
             extra_index.append(extra_index_block)

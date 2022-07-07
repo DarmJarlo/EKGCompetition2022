@@ -47,7 +47,7 @@ if __name__ == '__main__':
     print('ddddddddddd',len(ecg_leads[10]))
     #compare_plot(ecg_leads[1217], ecg_leads[1495])
     first = 0
-    end =  -1
+    end =  50
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
     ind =[]
     fal =[]
