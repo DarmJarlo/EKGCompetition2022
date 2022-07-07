@@ -83,7 +83,7 @@ def uniform_length(ecg_leads, ecg_labels):
                 ecg_labels_extra.append(ecg_labels_std[index])
             elif len(ecg_leads[index]>18000):
                 iter = len(ecg_leads[index])//9000
-                ecg_leads[index]=ecg_leads[index][:9000]
+                ecg_tem=ecg_leads[index][:9000]
                 for i in range(1,iter):
                     start = 9000*i
                     end = 9000*(i+1)
@@ -91,6 +91,7 @@ def uniform_length(ecg_leads, ecg_labels):
                     ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
                 ecg_labels_extra.append(ecg_labels_std[index])
+                ecg_leads[index] = ecg_tem
 
     ecg_labels_std = ecg_labels_std + ecg_labels_extra
     ecg_leads_std = ecg_leads + ecg_leads_extra
