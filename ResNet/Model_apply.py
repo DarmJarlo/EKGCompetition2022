@@ -44,10 +44,21 @@ def res_feature(data):
 
 if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
+    print('ddddddddddd',len(ecg_leads[10]))
     #compare_plot(ecg_leads[1217], ecg_leads[1495])
-    first = 5350
-    end = 5355
+    first = 0
+    end =  -1
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
+    ind =[]
+    fal =[]
+    for i in range(7000):
+        ind.append(len(leads[i]))
+        print('...........',ind,i)
+        if ind[i] == 0:
+            fal.append(i)
+            print(fal)
+    print(extra_index)
+'''
     predictions = []
     print('index',extra_index,len(ecg_leads[0]))
 
@@ -100,4 +111,4 @@ if __name__ == '__main__':
     print('false_index',false_index)
     print('false_length', false_length)
     print('false_pred:[pred,true_value]',false_pred)
-
+'''

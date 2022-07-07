@@ -7,15 +7,15 @@ from wettbewerb import load_references
 from collections import Counter
 from scipy.signal import medfilt
 from ecgdetectors import Detectors
-import hrvanalysis as hrv
-from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
+#import hrvanalysis as hrv
+#from hrvanalysis.preprocessing import get_nn_intervals, remove_outliers, interpolate_nan_values
 import random
-import pandas as pd
+#import pandas as pd
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
-import tsfel
+#import tsfel
 from sklearn.feature_selection import VarianceThreshold
 from sklearn import preprocessing
 import pywt
@@ -128,7 +128,7 @@ def relength(ecg_leads,ecg_labels):
     ecg_leads_extra = []
     ecg_labels_extra = []
     extra_index = []
-
+    ecg_leads_cut = ecg_leads
     n=len(ecg_leads)
     index_plus = n - 1
     for index in range(len(ecg_labels)):
@@ -146,7 +146,7 @@ def relength(ecg_leads,ecg_labels):
             if len(Rpeak)>1:
 
                 ecg_leads[index]=ecg_leads[index][Rpeak[0]:Rpeak[-1]]
-                print("rpeaks",Rpeak[0],Rpeak[-1],len(ecg_leads[index]))
+                #print("rpeaks",Rpeak[0],Rpeak[-1],len(ecg_leads[index]))
                 lowiter = 9000 // len(ecg_leads[index])
 
             else:
@@ -156,25 +156,37 @@ def relength(ecg_leads,ecg_labels):
 
             ecg_temp=ecg_leads[index]
             for i in range(lowiter):
-                print(ecg_leads[index].shape)
+                #print(ecg_leads[index].shape)
                 ecg_temp = np.append(ecg_temp, ecg_leads[index])
             ecg_leads[index] = ecg_temp[0:9000]
             print('short data after relength',index,len(ecg_leads[index]))
 
         elif len(ecg_leads[index]) > 9000:
             extra_index_block=[]
-            if len(ecg_leads[index] <= 18000):
-                ecg_leads[index] = ecg_leads[index][0:9000]
+            if len(ecg_leads[index]) < 18000:
+                ecg_leads_cut[index] = ecg_leads[index][0:9000]
+
+                print('cut',index,ecg_leads_cut[index][-9000:],len(ecg_leads_cut[index][-9000:]))
                 extra_index_block.append(index)
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
                 index_plus = index_plus+1
                 extra_index_block.append(index_plus)
                 ecg_labels_extra.append(ecg_labels_std[index])
-            elif len(ecg_leads[index] > 18000):
-                iter = len(ecg_leads[index]) // 9000
-                ecg_leads[index] = ecg_leads[index][:9000]
+                ecg_leads[index] = ecg_leads_cut[index]
+            elif len(ecg_leads[index]) ==18000:
+                ecg_leads_cut[index] = ecg_leads[index][0:9000]
+                ecg_leads_extra.append(ecg_leads[index][-9000:])
+                print('extra',ecg_leads_extra)
+                index_plus = index_plus + 1
                 extra_index_block.append(index)
-                index_plus = index_plus+1
+                extra_index_block.append(index_plus)
+                ecg_labels_extra.append(ecg_labels_std[index])
+                ecg_leads[index] = ecg_leads_cut[index]
+            elif len(ecg_leads[index]) > 18000:
+                iter = len(ecg_leads[index]) // 9000
+                ecg_leads_cut[index] = ecg_leads[index][:9000]
+                extra_index_block.append(index)
+
                 for i in range(1, iter):
                     start = 9000 * i
                     end = 9000 * (i + 1)
@@ -183,14 +195,17 @@ def relength(ecg_leads,ecg_labels):
                     ecg_leads_extra.append(ecg_leads[start:end])
                     ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
+
+
                 index_plus = index_plus+1
                 extra_index_block.append(index_plus)
+                ecg_leads[index] = ecg_leads_cut[index]
 
                 ecg_labels_extra.append(ecg_labels_std[index])
             extra_index.append(extra_index_block)
     ecg_labels_std = ecg_labels_std + ecg_labels_extra
     ecg_leads_std = ecg_leads + ecg_leads_extra
-
+    print(ecg_leads_extra)
     # form the label as one-hot
 
     Label_set = np.zeros((len(ecg_labels_std), 4))

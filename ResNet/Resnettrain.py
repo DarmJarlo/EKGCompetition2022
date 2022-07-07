@@ -136,7 +136,7 @@ if __name__ == '__main__':
         valid_loss.reset_states()
         valid_accuracy.reset_states()
         'adaptive learning rate for adadelta'
-        
+
         if epoch < 6:
             alpha = epoch*0.2+0.2
         elif epoch > 15 and accu < 0.85:
