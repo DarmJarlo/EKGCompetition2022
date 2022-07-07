@@ -46,7 +46,7 @@ if __name__ == '__main__':
     ecg_leads, ecg_labels, fs, ecg_names = load_references()
     #compare_plot(ecg_leads[1217], ecg_leads[1495])
     first = 5350
-    end = 5380
+    end = 5355
     leads, labels ,extra_index = relength(ecg_leads[first:end], ecg_labels[first:end])
     predictions = []
     print('index',extra_index,len(ecg_leads[0]))
@@ -61,8 +61,12 @@ if __name__ == '__main__':
     false_index = []
     false_length = []
     false_pred = []
+    if config.Oned != True:
+        shape =(1,90,100,1)
+    else:
+        shape = (1,9000,1)
     for index in range(first,end):
-        lead = leads_transfer(leads[index-first], (1, 9000, 1), labels[index-first])
+        lead = leads_transfer(leads[index-first], shape, labels[index-first])
         feature1,feature2,feature3,feature4, prediction,feature4_p = res_feature(lead)
         prediction = prediction.numpy()
         label_predi=np.argmax(prediction)
