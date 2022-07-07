@@ -29,7 +29,6 @@ import neurokit2 as nk
 from models.resnet import resnet_50, resnet_50_1d
 from keras.callbacks import ModelCheckpoint
 import config
-from prepare_data import generate_datasets
 import math
 import sys
 
