@@ -24,6 +24,7 @@ import tensorflow as tf
 import utils
 from scipy import signal
 from sklearn.decomposition import PCA
+import config
 
 
 ###Signatur der Methode (Parameter und Anzahl return-Werte) darf nicht verändert werden
@@ -49,7 +50,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         welches benutzt werden soll
     Returns
     -------
-    predictions : list of tuples
+    predictions_labels : list of tuples
         ecg_name und eure Diagnose
     '''
 
@@ -57,78 +58,36 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
     # Euer Code ab hier
     with open(model_name, 'rb') as f:
         xgb = pickle.load(f)  # load boosting classifier
-
-    with open('pca.pkl', 'rb') as pickle_file:
-        pca = pickle.load(pickle_file)
+        model = tf.saved_model.load('Keras_models/new_model')  # load resnet
 
     detectors = Detectors(fs)
     cfg = tsfel.get_features_by_domain(domain='spectral', json_path='features.json')
-    model = tf.saved_model.load('Keras_models/new_model')
-
-    is_ensemble = False  # whether using both models as classifiers or just the xgb
 
     feature_vector = np.array([])  # create empty arrays for features and predictions_labels later
-    predictions_labels = list()  # list for final predictions
-    predictions_res_list = list()  # list for predictions given via ResNet50
+    predictions_labels = list()
+    predictions_res_list = list()
 
-    ecg_leads_extra = []
-    extra_index = []
+    ecg_leads_std, extra_index = utils.relength_leads(ecg_leads)  # make leads have uniform length
 
-    n = len(ecg_leads)
-    index_plus = n - 1
-    for index in range(len(ecg_leads)):  # make leads to have uniform length of 9000
-        if len(ecg_leads[index]) < 9000:
-            lowiter = 9000 // len(ecg_leads[index])
-            for i in range(lowiter):
-                ecg_leads[index] = np.append(ecg_leads[index], ecg_leads[index])
-            ecg_leads[index] = ecg_leads[index][0:9000]
-        elif len(ecg_leads[index]) > 9000:
-            extra_index_block = []
-            if len(ecg_leads[index] <= 18000):
-                ecg_leads[index] = ecg_leads[index][0:9000]
-                extra_index_block.append(index)
-                ecg_leads_extra.append(ecg_leads[index][-9000:])
-                index_plus = index_plus + 1
-                extra_index_block.append(index_plus)
-            elif len(ecg_leads[index] > 18000):
-                iter = len(ecg_leads[index]) // 9000
-                ecg_leads[index] = ecg_leads[index][:9000]
-                extra_index_block.append(index)
-                index_plus = index_plus + 1
-                for i in range(1, iter):
-                    start = 9000 * i
-                    end = 9000 * (i + 1)
-                    index_plus = index_plus + 1
-                    extra_index_block.append(index_plus)
-                    ecg_leads_extra.append(ecg_leads[start:end])
-                ecg_leads_extra.append(ecg_leads[index][-9000:])
-                index_plus = index_plus + 1
-                extra_index_block.append(index_plus)
+    if config.Oned != True:
+        shape =(1,90,100,1)
+    else:
+        shape = (1,9000,1)
 
-            extra_index.append(extra_index_block)
-    ecg_leads_std = ecg_leads + ecg_leads_extra
-    ecg_leads_std = np.vstack(ecg_leads_std)
-
-    for idx in range(len(ecg_leads_std)):  # extract all features
+    for idx in range(len(ecg_leads_std)):
+        print(idx)
         ecg_lead = ecg_leads_std[idx]
-        spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)  # spectral feature extraction
+        spectral_features = tsfel.time_series_features_extractor(cfg, ecg_lead, fs=fs)
         corr_features = tsfel.correlated_features(spectral_features)
         spectral_features.drop(corr_features, axis=1, inplace=True)
-        spectral_features = spectral_features.to_numpy()
+        spectral_features = spectral_features.to_numpy()  # extract spectral features
 
-        lead = utils.leads_transfer(ecg_lead, shape=(1, 90, 100, 1))  # resnet-features
-        prediction_res, features_res = model(lead)
-        prediction_res = prediction_res.numpy()
-        features_res = features_res.numpy()
+        res_data = utils.leads_transfer(ecg_lead, shape=shape)
+        feature1, feature2, feature3, feature4, prediction, feature4_p = utils.res_feature(res_data, model)
+        prediction_res = prediction.numpy()
+        predictions_res_list.append(prediction_res)  # get resnet prediction
 
-        features_res = features_res.reshape((32, 64))
-        kernel = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]]
-        features_res = signal.convolve2d(features_res, kernel)[::3, ::3]
-        features_res = features_res.reshape(1, -1)
-        features_res = pca.transform(features_res)[0, :80]  # perform PCA
-        predictions_res_list.append(prediction_res)
-
-        rr_intervals = detectors.two_average_detector(ecg_lead)  # extract rr-intervals
+        rr_intervals = detectors.two_average_detector(ecg_lead)  # get rr-intervals
         if len(rr_intervals) == 1:
             rr_intervals = np.abs(rr_intervals)
             arti_rr_1 = rr_intervals * random.random()
@@ -150,7 +109,7 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_1)
             rr_intervals_list = np.append(rr_intervals_list, arti_rr_2)
 
-        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list)  # extract features via hrv-library
+        dict_time_domain = hrv.get_time_domain_features(rr_intervals_list) # hrv-features
         dict_geometrical_features = hrv.get_geometrical_features(rr_intervals_list)
         dict_pointcare = hrv.get_poincare_plot_features(rr_intervals_list)
         dict_csi_csv = hrv.get_csi_cvi_features(rr_intervals_list)
@@ -164,47 +123,40 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
         values_entropy = list(dict_entropy.values())
         values_csicsv = list(dict_csi_csv.values())
 
-        feature_vector = np.append(feature_vector, values_time)  # combine extracted features
+        feature_vector = np.append(feature_vector, values_time)
         feature_vector = np.append(feature_vector, values_frequency)
         feature_vector = np.append(feature_vector, values_geometrical)
         feature_vector = np.append(feature_vector, values_pointcare)
         feature_vector = np.append(feature_vector, values_entropy)
         feature_vector = np.append(feature_vector, values_csicsv)
         feature_vector = np.append(feature_vector, spectral_features)
-        feature_vector = np.append(feature_vector, features_res)
 
-        if (idx % 100) == 0:
-            print(str(idx) + "\t EKG Signale wurden verarbeitet.")
-
-    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 137), 137))  # reshape fv
-    col = np.arange(137)
+    feature_vector = np.reshape(feature_vector, (int(len(feature_vector) / 57), 57))  # reshape fv
+    col = np.arange(57)
     index = np.arange(len(feature_vector))
     df = pd.DataFrame(data=feature_vector, index=index, columns=col)
     df = df.drop(df.columns[24], axis=1)  # column has None-values
 
-    df = df.replace([np.inf, -np.inf], np.nan)  # replace invalid values
+    df = df.replace([np.inf, -np.inf], np.nan)  # Replace invalid values
     column_means = df.mean()
     df = df.fillna(column_means)
     df = df.fillna(0)
 
     feature_vector = df.to_numpy()
 
-    if is_ensemble:  # get predictions either as ensemble or as
-        predicted_labels_xgb = xgb.predict_proba(feature_vector)
-        predictions_res = np.vstack(predictions_res_list)
-        temp = predicted_labels_xgb + predictions_res
-        y_pred = []
-        for i in range(len(temp)):
-            label = np.argmax(temp[i])
-            y_pred.append(label)
-        predicted_classes = np.vstack(y_pred)
-    else:
-        predicted_classes = xgb.predict(feature_vector)
+    predicted_labels_xgb = xgb.predict_proba(feature_vector)  # combine predictions
+    predictions_res = np.vstack(predictions_res_list)
+    temp = 0.5*predicted_labels_xgb + 0.5*predictions_res
+    y_pred = []
+    for i in range(len(temp)):
+        label = np.argmax(temp[i])
+        y_pred.append(label)
+    predicted_classes = np.vstack(y_pred)
 
     labels = []
     count = 0
     temp_arr = []
-    for i in range(len(ecg_leads)):  # combine predictions for relengthed leads
+    for i in range(len(ecg_leads)):  # combine predictions for resized leads
         if len(extra_index) > 0:
             if count < len(extra_index):
                 temp_arr = extra_index[count]
@@ -249,4 +201,3 @@ def predict_labels(ecg_leads: List[np.ndarray], fs: float, ecg_names: List[str],
 
     # ------------------------------------------------------------------------------
     return predictions_labels  # Liste von Tupels im Format (ecg_name,label) - Muss unverändert bleiben!
-
