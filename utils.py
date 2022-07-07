@@ -171,9 +171,9 @@ def relength(ecg_leads,ecg_labels):
                 ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads[index] = ecg_leads_cut
             elif len(ecg_leads[index]) ==18000:
-                print(len(ecg_leads[index]))
+                #print(len(ecg_leads[index]))
                 ecg_leads_cut = ecg_leads[index][0:9000]
-                print(len(ecg_leads[index]))
+                #print(len(ecg_leads[index]))
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
 
                 print('extra',ecg_leads_extra)
@@ -183,6 +183,7 @@ def relength(ecg_leads,ecg_labels):
                 ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads[index] = ecg_leads_cut
             elif len(ecg_leads[index]) > 18000:
+                print(len(ecg_leads[index]))
                 iter = len(ecg_leads[index]) // 9000
                 ecg_leads_cut= ecg_leads[index][:9000]
                 extra_index_block.append(index)
@@ -192,7 +193,7 @@ def relength(ecg_leads,ecg_labels):
                     end = 9000 * (i + 1)
                     index_plus=index_plus+1
                     extra_index_block.append(index_plus)
-                    ecg_leads_extra.append(ecg_leads[start:end])
+                    ecg_leads_extra.append(ecg_leads[index][start:end])
                     ecg_labels_extra.append(ecg_labels_std[index])
                 ecg_leads_extra.append(ecg_leads[index][-9000:])
 
