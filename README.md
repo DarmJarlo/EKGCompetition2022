@@ -5,7 +5,8 @@ Teammitglieder: Ellen, Jia und Noah
 Model wird als four_classes classifier trainiert. Wichtig fürs Training sind die 
 1. features.json Datei
 2. utils.py  
-3. die Ordner Keras_models und models
+3. config
+4. die Ordner Keras_models und models
 da sie im gleichen Ordner liegen muss, wie die train.py und predict.py. 
 Im Keras_models Ordner befindet sich das trainierte ResNet
 
