@@ -37,6 +37,7 @@ Features wurden aus verschiedenen Domänen extrahiert:
 - Sample entropy
 
 Source: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html#module-hrvanalysis.extract_features
+https://openresearchsoftware.metajnl.com/articles/10.5334/jors.305/
 ## tsfel
 Für Spectral Features:
 - Fundamental frequency
