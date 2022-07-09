@@ -10,8 +10,6 @@ Model wird als four_classes classifier trainiert. Wichtig fürs Training sind di
 da sie im gleichen Ordner liegen muss, wie die train.py und predict.py. 
 Im Keras_models Ordner befindet sich das trainierte ResNet
 
-Für den vollständigen Download der Inhalte des trainierten ResNet50 im Keras_models-Ornder muss das Projekt mit Git Bash
-heruntergeladen werden. 
 
 In der LICENSE-Datei ist das Copyright für das ResNet hinterlegt
 
